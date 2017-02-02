@@ -11,3 +11,7 @@ import numpy as np
 import matplotlib.pylab as plt
 import photutils
 plt.ioff()
+
+
+
+# Define primary AstroCell

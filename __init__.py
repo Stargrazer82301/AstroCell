@@ -1,1 +1,1 @@
-__all__ = ['GalCell','funcs','classes']
+__all__ = ['AstroCell','funcs','classes']

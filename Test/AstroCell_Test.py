@@ -21,23 +21,23 @@ import astropy.io.fits
 import photutils
 import skimage.feature
 import PIL.Image
-import GalCell
-import GalCell.classes
-import GalCell.funcs
+import AstroCell
+import AstroCell.classes
+import AstroCell.funcs
 plt.ioff()
 
 
 
 # State input directory and create output directory inside it
-in_dir = '/home/chris/Data/GalCell/Flourescant/Mammary/Ref_LO/'
-out_dir = os.path.join(in_dir, 'GalCell_Output')
+in_dir = '/home/chris/Data/AstroCell/Flourescant/Mammary/Ref_LO/'
+out_dir = os.path.join(in_dir, 'AstroCell_Output')
 if os.path.exists(out_dir):
     shutil.rmtree(out_dir)
 os.mkdir(out_dir)
-temp = GalCell.classes.temp_dir(out_dir)
+temp = AstroCell.classes.temp_dir(out_dir)
 """
 # Create tuple to hold each band object
-bands = ( GalCell.classes.rgb('r'), GalCell.classes.rgb('g'), GalCell.classes.rgb('b') )
+bands = ( AstroCell.classes.rgb('r'), AstroCell.classes.rgb('g'), AstroCell.classes.rgb('b') )
 """
 # Identify and loop over all image files in input directory
 in_files = os.listdir(in_dir)
@@ -53,19 +53,26 @@ for in_image in in_images:
     rgb_image = np.array(bitmap_image)
 
     # Extract each band
-    r_image = GalCell.funcs.edge_clean(rgb_image[:,:,0]).astype(float)
-    g_image = GalCell.funcs.edge_clean(rgb_image[:,:,1]).astype(float)
-    b_image = GalCell.funcs.edge_clean(rgb_image[:,:,2]).astype(float)
+    r_image = AstroCell.funcs.edge_clean(rgb_image[:,:,0]).astype(float)
+    g_image = AstroCell.funcs.edge_clean(rgb_image[:,:,1]).astype(float)
+    b_image = AstroCell.funcs.edge_clean(rgb_image[:,:,2]).astype(float)
 
-    b_edge = skimage.feature.canny(b_image, sigma=2.0).astype(float)
-    sdfdsfds
+    b_edge = skimage.feature.canny(b_image, sigma=1.5).astype(float)
 
-
-
-
+    temp.qw(b_image, in_image.replace(' ','_'))
+    temp.qw(b_edge, in_image.replace(' ','_').replace('.png','_canny'))
 
 
 
+
+
+
+
+
+
+
+
+dfgdfg
 # Clean up temporary files
 shutil.rmtree(os.path.join(out_dir,'Temp'))
 

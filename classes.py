@@ -23,8 +23,11 @@ plt.ioff()
 
 
 
-class rgb():
-    """ Holder class for rgb image data and associated attributes """
+#class rgb():
+#    """ Holder class for rgb image data and associated attributes """
+#
+#    def __init__(self, image_path):
+
 
 
 
@@ -35,7 +38,7 @@ class temp_dir():
     """ Convenience class for working with temporary directory"""
 
     def __init__(self, out_dir):
-        """ Initialise the object """
+        """ Initialise the temporary directory object """
         self.dir = os.path.join(out_dir,'Temp')
         if not os.path.exists(self.dir):
             os.mkdir(self.dir)
