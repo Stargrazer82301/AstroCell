@@ -18,23 +18,20 @@ import astropy.io.fits
 import photutils
 import skimage.feature
 import PIL.Image
-import GalCell
+import AstroCell
+import AstroCell.Image
 plt.ioff()
 
 
 
-#class rgb():
-#    """ Holder class for rgb image data and associated attributes """
-#
-#    def __init__(self, image_path):
+class Bunch:
+    """ Convenience class for gathering related data """
+    def __init__(self, **kwds):
+        self.__dict__.update(kwds)
 
 
 
-
-
-
-
-class temp_dir():
+class TempDir():
     """ Convenience class for working with temporary directory"""
 
     def __init__(self, out_dir):
@@ -45,10 +42,41 @@ class temp_dir():
 
     def qw(self, data, name):
         """ Method for quickly writing a numpy array to a FITS file in the temporary directory """
-        if name[-4:]!='.fits':
-            if name[-1:]=='.':
+        if name[-4:] != '.fits':
+            if name[-1:] == '.':
                 name = name[:-1] + '.fits'
             else:
                 name += '.fits'
+        if data.dtype == 'bool':
+            data = data.astype(int)
         astropy.io.fits.writeto(os.path.join(self.dir,name), data, clobber=True)
+
+
+
+def LoadRGB(in_path):
+    """ Function that reads in an image file and returns three AstrCell.Image objects (r, g, b) """
+
+    # Read in image, and conver to array
+    bitmap_image = PIL.Image.open(in_path)
+    rgb_image = np.array(bitmap_image)
+
+    # Create an Image object from each channel in turn
+    r = AstroCell.Image.Image(rgb_image[:,:,0])
+    g = AstroCell.Image.Image(rgb_image[:,:,1])
+    b = AstroCell.Image.Image(rgb_image[:,:,2])
+
+    # Return Image objects
+    return r, g, b
+
+
+
+def FuncRGB(func, r, g, b):
+    """ Function that will take a function, and apply it to all three rgb bands """
+
+
+
+
+
+
+
 

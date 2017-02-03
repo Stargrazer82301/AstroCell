@@ -18,12 +18,12 @@ import astropy.io.fits
 import photutils
 import skimage.feature
 import PIL.Image
-import GalCell
+import AstroCell
 plt.ioff()
 
 
 
-def edge_clean(in_image):
+def EdgeClean(in_image):
     """ Function that removes rows/columns of single-value pixels from edge of an image """
 
     # Ensure that input image is in int format
