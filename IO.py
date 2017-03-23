@@ -3,22 +3,13 @@ import pdb
 import sys
 import os
 import shutil
-import imghdr
-import inspect
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
 import astropy.logger
 astropy.log.setLevel('ERROR')
-import astropy.convolution
-import astropy.stats
-import astropy.visualization
-import astropy.visualization.mpl_normalize
 import astropy.io.fits
-import photutils
-import skimage.feature
 import PIL.Image
-import AstroCell
 import AstroCell.Image
 plt.ioff()
 
