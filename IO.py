@@ -61,12 +61,6 @@ def LoadRGB(in_path):
 
 
 
-def FuncRGB(func, r, g, b):
-    """ Function that will take a function, and apply it to all three rgb bands """
-
-
-
-
 
 
 

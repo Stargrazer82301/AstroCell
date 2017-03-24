@@ -1,10 +1,5 @@
 # Import smorgasbord
 import pdb
-import sys
-import os
-import shutil
-import imghdr
-import inspect
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -18,7 +13,8 @@ import astropy.io.fits
 import photutils
 import skimage.feature
 import PIL.Image
-import AstroCell
+from ChrisFuncs import SigmaClip
+import AstroCell.Process
 plt.ioff()
 
 
@@ -26,7 +22,7 @@ plt.ioff()
 
 
 class RGB():
-    """ Class that stores an RGB triplet of image arrays; the methods of an RGB object concern handling all three bands together"""
+    """ Class that stores an RGB triplet of image arrays; the methods of an RGB object concern handling all three channels together"""
 
 
 
@@ -45,13 +41,11 @@ class RGB():
         self.g = Image(rgb_image[:,:,1])
         self.b = Image(rgb_image[:,:,2])
 
+        # Create tuple containing each channel's Image object for iterating over
+        self.iter = (self.r,self.g,self.b)
 
-
-    def Iter(self):
-        """A method that yields a tuple containing each channel, for iterating over"""
-
-        # Create and return tuple of image objects
-        return (self.r,self.g,self.b)
+        # Make tuple of strings giving name of each channel, to use for iteration
+        self.channels = ('r','g','b')
 
 
 
@@ -195,26 +189,3 @@ class Image():
 
 
 
-#class rgb():
-#    """ Class for rgb image data and associated attributes """
-#
-#    def __init__(self, image_path):
-#        """ Initialise rgb object """
-#
-#        # Read in the image, and convert into an array
-#        bitmap_image = PIL.Image.open(image_path)
-#        self.rgb = np.array(bitmap_image)
-#
-#        # Create a channel class for each band in the input array
-#        bands = ['r','g','b']
-#        for b in bands:
-#            band = bands[b]
-#            self.vars()[band] = channel()
-#"""
-#
-#"""
-#class channel():
-#    """ Class for an image in a given band (ie, channel) """
-#
-#    def __init__(self, band, in_image):
-#        """ Initialise band object """
