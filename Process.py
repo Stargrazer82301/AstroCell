@@ -32,7 +32,7 @@ def CannyCells(in_image, sigma=1.0):
         labels_areas[i] = np.where(canny_close_labels==i)[0].size
 
     # Clip label areas, to identify threshold above which cell regions are large enough to likely be spurious
-    labels_clip = SigmaClip(labels_areas, median=True, sigma_thresh=3.0)
+    labels_clip = SigmaClip(labels_areas, median=True, sigma_thresh=4.0)
     labels_area_thresh = np.max(labels_clip[2])
     labels_exclude = np.arange(0,labels_areas.size)[ np.where( (labels_areas>labels_area_thresh) | (labels_areas<=5) ) ]
 

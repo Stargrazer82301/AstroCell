@@ -52,38 +52,43 @@ class RGB():
     def BlackOnWhite(self):
         """ A method that determines whether an image is on a black background; if not, image is inverted so that it is """
 
-        # Iterate over rgb, performing rough canny extration
-        cube_canny = np.zeros(self.cube.shape)
-        for band in self.Iter():
-            band.CannyCells()
+        # Coadd all three channels into a single channel, and do a rough Canny-based cell extraction
+        canny_cube = np.zeros(self.cube.shape)
+        for i in range(0, len(self.iter)):
+            canny_cube[:,:,i] = AstroCell.Process.CannyCells(self.iter[i].map)
+        canny_features = np.sum(canny_cube, axis=2)
+        self.canny_features = canny_features
+        #astropy.io.fits.writeto('/home/chris/canny_coadd.fits', canny_features.astype(float), clobber=True)
+
+        # Get pixels values of image, with black (0) and white (255) pixels removed
+        values = self.cube.copy().flatten()
+        values = values[np.where(values!=0)]
+        values = values[np.where(values!=255)]
+        values = values[np.where(np.isnan(values)==False)]
+
+        # Construct histogram to find peak of pixel value distribution (using Freedman-Diaconis rule to decide bin size)
+        hist_bin_width = 2.0 * scipy.stats.iqr(values) * values.size**(-1./3.)
+        hist_bins = int( np.round( (np.nanmax(values)-np.nanmin(values)) / hist_bin_width ) )
+        hist = np.histogram(values, bins=hist_bins)
+        hist_peak = 0.5 * ( hist[1][np.argmax(hist[0])] + hist[1][np.argmax(hist[0])+1] )
 
 
-#        # Get pixels values of image, with black (0) and white (255) pixels removed
-#        in_values = self.cube.copy().flatten()
-#        in_values = in_values[np.where(in_values!=0)]
-#        in_values = in_values[np.where(in_values!=255)]
-#        in_values = in_values[np.where(np.isnan(in_values)==False)]
-#
-#        r_canny = skimage.feature.canny(self.r.map, sigma=1.0)
-#        r_canny_label = skimage.measure.label(np.invert(r_canny), connectivity=1)
-#        astropy.io.fits.writeto('/home/chris/r_canny_label.fits', r_canny_label.astype(float), clobber=True)
-#
-#
-#
-#
-#        # Get distribution of pixel values, and which values are over/under median
-#        in_clip = SigmaClip(in_values, median=True, tolerance=0.0001, sigma_thresh=0.5)
-#
-#        # Construct histogram to find peak of pixel value distribution (bin size 10x Freedman-Diaconis bin size)
-#        hist_bin_width = 10.0 * 2.0 * scipy.stats.iqr(in_values) * in_values.size**(-1./3.)
-#        hist_bins = int( np.round( (np.nanmax(in_values)-np.nanmin(in_values)) / hist_bin_width ) )
-#        pdb.set_trace()
-#        hist = np.histogram(in_values, bins=hist_bins)
-#
-#
-#        in_over = in_values[np.where(in_values>in_clip[1])]
-#        in_under = in_values[np.where(in_values<in_clip[1])]
-#        pdb.set_trace()
+
+        # Find number of values above and below peak of pixel value distribution
+        values_above = values[ np.where(values>hist_peak) ]
+        values_below = values[ np.where(values<hist_peak) ]
+
+        # If distribution has strong negative skew, assume the image has black background
+        skew = len(values_below)/len(values_above)
+        if skew<0.5:
+            self.inverted = False
+
+        # Else assume image has white background, and invert Image
+        else:
+            self.inverted = True
+            for channel in self.iter:
+                channel.map = -1.0 * ( channel.map - 255.0 )
+
 
 
 
@@ -103,31 +108,8 @@ class Image():
 
 
 
-    def ScaleNorm(self):
-        """ A function to normalise image scale so that the full dynamic range is taken advantage of """
-
-        # Make copy of image to work with, and ensure array is float type
-        out_image = self.map.copy()
-        out_image = out_image.astype(float)
-
-        # Subtract minimum pixel value from image, so that it becomes zero
-        out_image -= np.nanmin(out_image)
-
-        # Rescale map by a so that maximum pixel value is white (ie, value of 225)
-        out_image *= 225.0 / np.nanmax(out_image)
-
-        # Overwrite updated map with cleaned version
-        self.map = out_image
-
-        # Return updated Image
-        return self
-
-
-
-
-
     def CleanEdges(self):
-        """ Function  that removes rows/columns of single-value pixels from edge of an image. The 'unclean' image is saved to an attribute """
+        """ Method that removes rows/columns of single-value pixels from edge of an image. The 'unclean' image is saved to an attribute """
 
         # Make copy of image to work with
         in_image = self.map.copy()
@@ -166,13 +148,6 @@ class Image():
 
         # Overwrite existing map with cleaned version
         self.map = out_image
-
-        # Return updated Image
-        return self
-
-
-
-
 
 
 
