@@ -1,5 +1,6 @@
 # Import smorgasbord
 import pdb
+import time
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -27,19 +28,20 @@ def CannyCells(in_image, sigma=1.0):
     canny_close_labels = skimage.measure.label(np.invert(canny_close), connectivity=1)
 
     # Loop over labels, recording number of pixels in each
-    labels_areas = np.zeros(np.max(canny_close_labels))
-    for i in range(0, np.max(canny_close_labels)):
-        labels_areas[i] = np.where(canny_close_labels==i)[0].size
+    canny_close_labels_flat = canny_close_labels.flatten()
+    labels_areas = np.zeros(np.max(canny_close_labels_flat))
+    for i in range(0, np.max(canny_close_labels_flat)):
+        labels_areas[i] = np.where(canny_close_labels_flat==i)[0].size
 
     # Clip label areas, to identify threshold above which cell regions are large enough to likely be spurious
     labels_clip = SigmaClip(labels_areas, median=True, sigma_thresh=4.0)
     labels_area_thresh = np.max(labels_clip[2])
     labels_exclude = np.arange(0,labels_areas.size)[ np.where( (labels_areas>labels_area_thresh) | (labels_areas<=5) ) ]
 
-    # Remove spurious labels
-    canny_cells = canny_close_labels.copy()
-    for label in labels_exclude:
-        canny_cells[ np.where( canny_close_labels == label ) ] = 0
+    # Remove spurious labels (flattening to improve speed, then reshaping after processing)
+    canny_cells = canny_close_labels.copy().flatten()
+    canny_cells[np.in1d(canny_cells,labels_exclude)] = 0
+    canny_cells = np.reshape(canny_cells, canny_close_labels.shape)
 
     # Return final image
     return canny_cells
