@@ -18,8 +18,8 @@ plt.ioff()
 def CannyCells(in_image, sigma=1.0):
     """ A function that uses Canny edge detection to generate a initial guess of what regions of an image are occupied by cells """
 
-    # Pass map through canny filter
-    canny = skimage.feature.canny(in_image, sigma=1.0)
+    # Pass image through a canny filter
+    canny = skimage.feature.canny(in_image, sigma=sigma)
 
     # Run map through one iteration of binary closing, to close up gaps in the perimeters of canny edges
     canny_close = scipy.ndimage.binary_closing(canny)

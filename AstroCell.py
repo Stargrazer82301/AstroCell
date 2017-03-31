@@ -1,7 +1,9 @@
 # Import smorgasbord
 import sys
 import os
+import shutil
 import PIL.Image
+import imghdr
 import astropy.convolution
 import astropy.stats
 import astropy.visualization
@@ -38,14 +40,11 @@ def Count(in_dir):
     in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
     for in_image in in_images:
 
-        # Determine image extension
-        in_exten = '.'+in_image.split('.')[-1:][0]
+        # Read in image
+        rgb = AstroCell.Image.RGB(os.path.join(in_dir, in_image))
 
-        # Load image, and create AstroCell.Image object for each band
-        r, g, b = AstroCell.IO.LoadRGB(os.path.join(in_dir,in_image))
-
-        # Clean edges of images
-        [ channel.CleanEdges() for channel in [r,g,b] ]
+        # Determine if image is black-background; if not, set it so that it is
+        rgb.BlackOnWhite()
 
 
 
