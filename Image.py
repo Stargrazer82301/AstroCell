@@ -58,18 +58,24 @@ class RGB():
     def BlackOnWhite(self):
         """ A method that determines whether an image is on a black background; if not, image is inverted so that it is """
 
-        # Coadd all three channels into a single channel, and do a rough Canny-based cell extraction
+        # Do a rough Canny-based cell extraction on each channel, and coadd the Canny feature maps
         canny_cube = np.zeros(self.cube.shape)
         for i in range(0, len(self.iter)):
             canny_cube[:,:,i] = AstroCell.Process.CannyCells(self.iter[i].map)
-        canny_features = np.sum(canny_cube, axis=2)
-        self.canny_features = canny_features
-        #astropy.io.fits.writeto('/home/chris/canny_coadd.fits', canny_features.astype(float), clobber=True)
+        self.canny_features = np.sum(canny_cube, axis=2)
+        canny_where = np.where(self.canny_features>0)
 
-        # Get pixels values of image, with black (0) and white (255) pixels removed
-        values = self.cube.copy().flatten()
-        values = values[np.where(values!=0)]
-        values = values[np.where(values!=255)]
+        # Flag pixel values for pixels within Canny features
+        cube = self.cube.copy().astype(int)
+        canny_where = np.where(self.canny_features>0)
+        for i in range(0,cube.shape[2]):
+            cube[:,:,i][canny_where] = -99
+
+        # Get pixel values of image, with Canny-flagged (-99), black (0), and white (255) pixels removed
+        values = cube.copy().flatten().astype(float)
+        values = values[np.where(values!=-99)]
+        values = values[np.where(values>0)]
+        values = values[np.where(values<255)]
         values = values[np.where(np.isnan(values)==False)]
 
         # Construct histogram to find peak of pixel value distribution (using Freedman-Diaconis rule to decide bin size)
@@ -77,8 +83,6 @@ class RGB():
         hist_bins = int( np.round( (np.nanmax(values)-np.nanmin(values)) / hist_bin_width ) )
         hist = np.histogram(values, bins=hist_bins)
         hist_peak = 0.5 * ( hist[1][np.argmax(hist[0])] + hist[1][np.argmax(hist[0])+1] )
-
-
 
         # Find number of values above and below peak of pixel value distribution
         values_above = values[ np.where(values>hist_peak) ]
