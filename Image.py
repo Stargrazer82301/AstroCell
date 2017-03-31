@@ -1,5 +1,6 @@
 # Import smorgasbord
 import pdb
+import time
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -14,6 +15,7 @@ import photutils
 import skimage.feature
 import PIL.Image
 from ChrisFuncs import SigmaClip
+from ChrisFuncs.Photom import EllipseMask
 import AstroCell.Process
 plt.ioff()
 
@@ -41,7 +43,11 @@ class RGB():
         self.g = Image(rgb_image[:,:,1])
         self.b = Image(rgb_image[:,:,2])
 
-        # Create tuple containing each channel's Image object for iterating over
+        # Initialise AstroCell.Image object for a coadd of all three channels
+        coadd = np.round( np.sum(rgb_image,axis=2).astype(float) / 3.0 ).astype(int)
+        self.coadd = Image(coadd)
+
+        # Create tuple containing each channel's Image object (and the coadd Image object) for iterating over
         self.iter = (self.r,self.g,self.b)
 
         # Make tuple of strings giving name of each channel, to use for iteration
