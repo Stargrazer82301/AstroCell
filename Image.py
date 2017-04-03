@@ -136,6 +136,10 @@ class RGB():
         for channel in self.iter:
             channel.map = channel.map.astype(float)
 
+        # Record each channel's name as an attribute
+        for i in range(0, len(self.iter)):
+            self.iter[i].name =  self.channels[i]
+
 
 
     def MakeCoadd(self):
@@ -150,6 +154,9 @@ class RGB():
 
         # Make tuple of strings giving name of each channel (including the coadd), to use for iteration
         self.channels = ('r','g','b','coadd')
+
+        # Record name of coadd channel
+        self.coadd.name = 'coadd'
 
 
 
