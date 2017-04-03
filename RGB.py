@@ -90,19 +90,20 @@ class RGB():
     def BlackOnWhite(self):
         """ A method that determines whether an image is on a black background; if not, image is inverted so that it is """
 
-        # Do a rough Canny-based cell extraction on each channel, and coadd the Canny feature maps
-        canny_cube = np.zeros(self.cube.shape)
+        # Do a rough Canny-based cell extraction on each channel
+        self.canny_cube = np.zeros(self.cube.shape)
         for i in range(0, len(self.iter)):
-            canny_cube[:,:,i] = AstroCell.Process.CannyCells(self.iter[i].map)
+            self.iter[i].CannyCells()
+            self.canny_cube[:,:,i] = self.iter[i].canny_features
 
-        # Coadd the canny feature maps from each channel
-        self.canny_features = np.sum(canny_cube, axis=2)
-        canny_where = np.where(self.canny_features>0)
-        #astropy.io.fits.writeto('/home/chris/canny_features.fits', self.canny_features, clobber=True)
+        # Coadd the Canny feature maps from each channel
+        canny_coadd = np.sum(self.canny_cube, axis=2)
+        canny_where = np.where(canny_coadd>0)
+        #astropy.io.fits.writeto('/home/chris/canny_features.fits', canny_coadd, clobber=True)
 
         # Flag pixel values for pixels within Canny features
         cube = self.cube.copy().astype(int)
-        canny_where = np.where(self.canny_features>0)
+        canny_where = np.where(canny_coadd>0)
         for i in range(0,cube.shape[2]):
             cube[:,:,i][canny_where] = -99
 
@@ -157,7 +158,7 @@ class RGB():
 
             # Create background map by excluding Canny cells from image, then smooth using a Gaussian filter
             canny_bg_map = channel.map.copy().astype(float)
-            canny_bg_map[ np.where(self.canny_features>0) ] = np.NaN
+            canny_bg_map[ np.where(canny_coadd>0) ] = np.NaN
             conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
             conv_map[ np.where( np.isnan(channel.map)==True ) ] = np.NaN
 
