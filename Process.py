@@ -27,11 +27,9 @@ def CannyCells(in_image, sigma=1.0):
     # Label closed Canny image
     canny_close_labels = skimage.measure.label(np.invert(canny_close), connectivity=1)
 
-    # Loop over labels, recording number of pixels in each
-    canny_close_labels_flat = canny_close_labels.flatten()
-    labels_areas = np.zeros(np.max(canny_close_labels_flat))
-    for i in range(0, np.max(canny_close_labels_flat)):
-        labels_areas[i] = np.where(canny_close_labels_flat==i)[0].size
+    # Record number of pixels in each labelled feature
+    labels_areas = np.unique(canny_close_labels, return_counts=True)[1]
+    labels_areas = labels_areas[np.where(labels_areas>0)]
 
     # Clip label areas, to identify threshold above which cell regions are large enough to likely be spurious
     labels_clip = SigmaClip(labels_areas, median=True, sigma_thresh=4.0)
