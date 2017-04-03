@@ -220,24 +220,27 @@ class RGB():
             canny_diams.append(canny_diam)
         canny_diams = np.array(canny_diams)[np.where(np.array(canny_diams)>0)]
 
-        # Decide size of of minimum filter to apply, and shape of filter footprint
+        # Decide size of filter to apply, based upon typical size range of Canny cells
         kernel_size = 4.0 * np.percentile(canny_diams, 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
-
-
-        canny_bg_map = self.coadd.map.copy().astype(float)
-        canny_bg_map[ np.where(self.canny_features>0) ] = np.NaN
-        conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
-
-        #pdb.set_trace()
-        conv_map[ np.where( np.isnan(self.r.map)==True ) ] = np.NaN
-        conv_sub = self.r.map - conv_map
-        #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
-
         # Iterate over each channel, applying a minimum filter to each
-        for channel in self.iter:
-            pdb.set_trace()
+        for channel in self.iter_coadd:
+
+            # Create background map by excluding Canny cells from image, then smooth using a Gaussian filter
+            canny_bg_map = channel.map.copy().astype(float)
+            canny_bg_map[ np.where(self.canny_features>0) ] = np.NaN
+            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
+            conv_map[ np.where( np.isnan(channel.map)==True ) ] = np.NaN
+
+            # Subtract Gaussian from original image to make detmap
+            conv_sub = channel.map - conv_map
+
+            # Re-set zero level, and record map to object
+            conv_sub += np.nanmin(conv_sub)
+            channel.detmap = conv_sub
+            #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
+
 
 
 
