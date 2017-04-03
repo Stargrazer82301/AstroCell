@@ -15,6 +15,25 @@ plt.ioff()
 
 
 
+
+
+def LoadRGB(in_path):
+    """ Function that reads in an image file and returns three AstrCell.Image objects (r, g, b) """
+
+    # Read in image, and conver to array
+    bitmap_image = PIL.Image.open(in_path)
+    rgb_image = np.array(bitmap_image)
+
+    # Create an Image object from each channel in turn
+    r = AstroCell.Image.Image(rgb_image[:,:,0])
+    g = AstroCell.Image.Image(rgb_image[:,:,1])
+    b = AstroCell.Image.Image(rgb_image[:,:,2])
+
+    # Return Image objects
+    return r, g, b
+
+
+
 class Bunch:
     """ Convenience class for gathering related data """
     def __init__(self, **kwds):
@@ -41,27 +60,5 @@ class TempDir():
         if data.dtype == 'bool':
             data = data.astype(int)
         astropy.io.fits.writeto(os.path.join(self.dir,name), data, clobber=True)
-
-
-
-def LoadRGB(in_path):
-    """ Function that reads in an image file and returns three AstrCell.Image objects (r, g, b) """
-
-    # Read in image, and conver to array
-    bitmap_image = PIL.Image.open(in_path)
-    rgb_image = np.array(bitmap_image)
-
-    # Create an Image object from each channel in turn
-    r = AstroCell.Image.Image(rgb_image[:,:,0])
-    g = AstroCell.Image.Image(rgb_image[:,:,1])
-    b = AstroCell.Image.Image(rgb_image[:,:,2])
-
-    # Return Image objects
-    return r, g, b
-
-
-
-
-
 
 

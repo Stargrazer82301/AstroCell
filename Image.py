@@ -96,6 +96,19 @@ class Image():
     def CannyCells(self, sigma=False):
         """ Wrapper around Process.CannyCells function """
 
+        # Call Process.CannyCells function, with or without sigma kwarg, as approproate
+        if sigma==False:
+            canny_features = AstroCell.Process.CannyCells(self.map)
+        elif isinstance(sigma, (int,float)):
+            canny_features = AstroCell.Process.CannyCells(self.map, sigma=sigma)
+        else:
+            raise Exception('Sigma value to be passed to Canny filter is not neither a float nor an int.')
+
+        # Record Canny feature map to Image object
+        self.canny_features = canny_features
+
+
+
 
 
 

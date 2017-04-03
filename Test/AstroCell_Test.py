@@ -24,6 +24,7 @@ import skimage.feature
 import skimage.restoration
 import PIL.Image
 import AstroCell
+import AstroCell.RGB
 import AstroCell.Image
 import AstroCell.IO
 plt.ioff()
@@ -40,16 +41,16 @@ os.mkdir(out_dir)
 # Initialise temp directory class
 temp = AstroCell.IO.TempDir(out_dir)
 
-
-
 # Identify and loop over all image files in input directory
 in_files = os.listdir(in_dir)
 in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
 in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
 for in_image in np.random.permutation(in_images):
 
+
+
     # Read in raw image, constructing an AstroCell RGB object
-    rgb = AstroCell.Image.RGB(os.path.join(in_dir, in_image))
+    rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
 
     # Clean edges of images
     [ channel.CleanEdges() for channel in rgb.iter ]
@@ -64,7 +65,7 @@ for in_image in np.random.permutation(in_images):
     rgb.DetFilter()
 
     # Construct initial matched filter, using Canny features
-    [ channel.CellStack(in_segments=rgb.canny_features) for channel in rgb.iter ]
+    [ channel.CannyCellStack() for channel in rgb.iter ]
 
 
 

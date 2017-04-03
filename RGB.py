@@ -41,17 +41,17 @@ class RGB():
         class Raw(object):
             pass
         self.raw = Raw()
-        self.raw.r = AstroCell.Image(rgb_image[:,:,0].copy())
-        self.raw.g = AstroCell.Image(rgb_image[:,:,1].copy())
-        self.raw.b = AstroCell.Image(rgb_image[:,:,2].copy())
+        self.raw.r = AstroCell.Image.Image(rgb_image[:,:,0].copy())
+        self.raw.g = AstroCell.Image.Image(rgb_image[:,:,1].copy())
+        self.raw.b = AstroCell.Image.Image(rgb_image[:,:,2].copy())
 
         # Store the full rgb cube, as a float
         self.cube = rgb_image.astype(float)
 
         # Initialise primary AstroCell.Image object for each channel
-        self.r = AstroCell.Image(self.cube[:,:,0].copy())
-        self.g = AstroCell.Image(self.cube[:,:,1].copy())
-        self.b = AstroCell.Image(self.cube[:,:,2].copy())
+        self.r = AstroCell.Image.Image(self.cube[:,:,0].copy())
+        self.g = AstroCell.Image.Image(self.cube[:,:,1].copy())
+        self.b = AstroCell.Image.Image(self.cube[:,:,2].copy())
 
         # Create tuple containing each channel's Image object for iterating over
         self.iter = (self.r,self.g,self.b)
@@ -74,7 +74,7 @@ class RGB():
 
         # Initialise AstroCell.Image object for a coadd of all three channels
         coadd = np.sum(self.cube,axis=2).astype(float) / 3.0
-        self.coadd = AstroCell.Image(coadd)
+        self.coadd = AstroCell.Image.Image(coadd)
 
         # Create tuple containing each channel's Image object (including the coadd) for iterating over
         self.iter_coadd = (self.r,self.g,self.b,self.coadd)
@@ -141,13 +141,11 @@ class RGB():
     def DetFilter(self):
         """ Method that removes smooth all large-scale background structure from map, to create an optimal detection map """
 
-        # Use canny features map to get distribution of filter sizes
+        # Use canny features map to get distribution of feature sizes (assuming circuar features)
         canny_diams = []
-        canny_features_flat = self.canny_features.flatten()
-        for i in range(1, int(np.max(canny_features_flat))):
-            canny_diam = 2.0 * np.sqrt( float(np.where(canny_features_flat==i)[0].shape[0]) / np.pi)
-            canny_diams.append(canny_diam)
-        canny_diams = np.array(canny_diams)[np.where(np.array(canny_diams)>0)]
+        canny_coadd = np.sum(self.canny_cube, axis=2)
+        canny_areas = np.unique(canny_coadd, return_counts=True)[1].astype(float)
+        canny_diams = 2.0 * np.sqrt( canny_areas / np.pi)
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
         kernel_size = 4.0 * np.percentile(canny_diams, 90.0)
@@ -169,3 +167,6 @@ class RGB():
             conv_sub += np.nanmin(conv_sub)
             channel.detmap = conv_sub
             #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
+
+
+

@@ -37,11 +37,16 @@ def CannyCells(in_image, sigma=1.0):
     labels_exclude = np.arange(0,labels_areas.size)[ np.where( (labels_areas>labels_area_thresh) | (labels_areas<=5) ) ]
 
     # Remove spurious labels (flattening to improve speed, then reshaping after processing)
-    canny_cells = canny_close_labels.copy().flatten()
-    canny_cells[np.in1d(canny_cells,labels_exclude)] = 0
-    canny_cells = np.reshape(canny_cells, canny_close_labels.shape)
+    canny_features = canny_close_labels.copy().flatten()
+    canny_features[np.in1d(canny_features,labels_exclude)] = 0
+    canny_features = np.reshape(canny_features, canny_close_labels.shape)
 
     # Return final image
-    return canny_cells
+    return canny_features
+
+
+
+def SegmentCombine():
+    """ A function that combines segmentation maps from multiple channels to create a master segmentation map """
 
 
