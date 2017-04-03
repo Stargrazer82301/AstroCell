@@ -60,10 +60,12 @@ for in_image in np.random.permutation(in_images):
     # Determine if image is black-background; if not, set it so that it is
     rgb.BlackOnWhite()
 
-    # Remove large-scale background from image (to create source extraction map)
+    # Remove large-scale background structures from image (to create source extraction map)
     rgb.DetFilter()
 
-    # Remove *smooth* large-scale background from image (to create flux extraction map)
+    # Construct initial matched filter, using Canny features
+    [ channel.CellStack(in_segments=rgb.canny_features) for channel in rgb.iter ]
+
 
 
 
