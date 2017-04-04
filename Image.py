@@ -14,6 +14,7 @@ import astropy.visualization.mpl_normalize
 import astropy.io.fits
 import photutils
 import skimage.feature
+import scipy.ndimage.measurements
 import PIL.Image
 from ChrisFuncs import SigmaClip
 from ChrisFuncs.Photom import EllipseMask
@@ -108,6 +109,50 @@ class Image():
         self.canny_features = canny_features
 
 
+
+
+    def CannyCellStack(self):
+        """ Method that stacks upon positions of identified features, to create a matched filter """
+
+        # Identify segment indices present in map (excluding bakground feature)
+        loop_features = list(set(self.canny_features.flatten()))[1:]
+
+        # Calculate approximate diameters of features (assuming circular features)
+        canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+        canny_diams = 2.0 * np.sqrt(canny_areas/np.pi)
+
+        # Hence decide size for cutout
+        cutout_diam = 3.0*np.percentile(canny_diams,90.0)
+        cutout_rad = int(np.round(0.5*cutout_diam))
+        cutout_diam = (2*cutout_rad)+1
+
+        # Create stack of NaNs to hold cutouts
+        stack = np.NaN * np.zeros([int(cutout_diam), int(cutout_diam), len(loop_features)])
+
+        # Create a padded version of the features map (and binary version of it), to enable creating cutouts
+        pad_map = np.pad(self.map.astype(float), pad_width=cutout_rad+1, mode='constant', constant_values=np.NaN)
+        pad_canny_features = np.pad(self.canny_features.astype(float), pad_width=cutout_rad+1, mode='constant', constant_values=np.NaN)
+        pad_canny_bin = pad_canny_features.copy()
+        pad_canny_bin[np.where(pad_canny_bin>0)] = 1
+
+
+        # Loop over features
+        for i in range(0,len(loop_features)):
+            feature = loop_features[i]
+
+            # Identify centre coords of feature
+            feature_centre = scipy.ndimage.measurements.center_of_mass(pad_canny_bin, labels=pad_canny_features, index=feature)
+            i_centre, j_centre = int(np.round(feature_centre[0])), int(np.round(feature_centre[1]))
+
+            # Produce cutout centred on feature (rotate it an arbitary number of times?), and insert into stack
+            cutout = pad_map[i_centre-cutout_rad:i_centre+cutout_rad+1, j_centre-cutout_rad:j_centre+cutout_rad+1]
+            #cutout = np.rot90( cutout, k=np.random.randint(0, high=4) )
+            stack[:,:,i] =cutout
+
+        # Make stack coadd, and record to object
+        stack_coadd = np.nanmean(stack, axis=2)
+        #astropy.io.fits.writeto('/home/chris/stack_coadd.fits', stack_coadd, clobber=True)
+        self.canny_stack = stack_coadd
 
 
 

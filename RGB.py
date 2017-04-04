@@ -157,7 +157,8 @@ class RGB():
             # Create background map by excluding Canny cells from image, then smooth using a Gaussian filter
             canny_bg_map = channel.map.copy().astype(float)
             canny_bg_map[ np.where(canny_coadd>0) ] = np.NaN
-            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
+            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel,
+                                                        interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
             conv_map[ np.where( np.isnan(channel.map)==True ) ] = np.NaN
 
             # Subtract Gaussian from original image to make detmap

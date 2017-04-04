@@ -29,6 +29,13 @@ import AstroCell.Image
 import AstroCell.IO
 plt.ioff()
 
+# Include reloads, to handle changes
+import importlib
+importlib.reload(AstroCell)
+importlib.reload(AstroCell.RGB)
+importlib.reload(AstroCell.Image)
+importlib.reload(AstroCell.IO)
+
 
 
 # State input directory and create output directory inside it
@@ -64,7 +71,7 @@ for in_image in np.random.permutation(in_images):
     # Remove large-scale background structures from image (to create source extraction map)
     rgb.DetFilter()
 
-    # Construct initial matched filter, using Canny features
+    # Construct initial matched filter in each channel, using Canny features
     [ channel.CannyCellStack() for channel in rgb.iter ]
 
 
