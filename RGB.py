@@ -164,7 +164,7 @@ class RGB():
         canny_diams = 2.0 * np.sqrt( canny_areas / np.pi)
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
-        kernel_size = 4.0 * np.percentile(canny_diams, 90.0)
+        kernel_size = 3.0 * np.percentile(canny_diams, 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
         # Iterate over each channel, applying a minimum filter to each
@@ -181,7 +181,7 @@ class RGB():
             conv_sub = channel.map - conv_map
 
             # Re-set zero level, and record map to object
-            conv_sub += np.nanmin(conv_sub)
+            conv_sub -= np.nanmin(conv_sub)
             channel.detmap = conv_sub
             #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
 
