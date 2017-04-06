@@ -110,7 +110,6 @@ class Image():
 
 
 
-
     def CannyCellStack(self):
         """ Method that stacks upon positions of identified features, to create a matched filter """
 
@@ -135,7 +134,6 @@ class Image():
         pad_canny_bin = pad_canny_features.copy()
         pad_canny_bin[np.where(pad_canny_bin>0)] = 1
 
-
         # Loop over features
         for i in range(0,len(loop_features)):
             feature = loop_features[i]
@@ -147,13 +145,54 @@ class Image():
             # Produce cutout centred on feature (rotate it an arbitary number of times?), and insert into stack
             cutout = pad_map[i_centre-cutout_rad:i_centre+cutout_rad+1, j_centre-cutout_rad:j_centre+cutout_rad+1]
             #cutout = np.rot90( cutout, k=np.random.randint(0, high=4) )
-            stack[:,:,i] =cutout
+            stack[:,:,i] = cutout
 
-        # Make stack coadd, and record to object
+        # Make stack coadd
         stack_coadd = np.nanmean(stack, axis=2)
-        #astropy.io.fits.writeto('/home/chris/stack_coadd.fits', stack_coadd, clobber=True)
-        self.canny_stack = stack_coadd
 
+        # Normalise stack, and make edges equal to zero (so it works better as a kernel)
+        stack_edges = np.array([stack_coadd[0,:], stack_coadd[-1,:], stack_coadd[:,0], stack_coadd[:,-1]]).flatten()
+        stack_coadd -= np.nanmedian(stack_edges)
+        stack_coadd /= np.nansum(stack_coadd)
+
+        # Record stack
+        self.canny_stack = stack_coadd
+        #astropy.io.fits.writeto('/home/chris/stack_coadd.fits', stack_coadd, clobber=True)
+
+
+
+    def ThreshSegment(self):
+        """ A method that uses basic threshold segmenting to identify cells """
+
+        # Perform sigma clipping of non-Canny pixels, to charactarise background
+        bg_map = self.r.detmap.copy().astype(float)
+        bg_map[ np.where(rgb.r.canny_features>0) ] = np.NaN
+        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=5.0)
+
+        # Background subtract map, and determine segmentation threshold
+        self.r.detmap -= bg_clip[1]
+        #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
+        seg_thresh = 1.0 * bg_clip[0]
+
+        # Use areas of canny features to decide minimum pixel area limit for segments
+        canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+        canny_areas_peak = SigmaClip(canny_areas, median=True, sigma_thresh=1.0)[1]
+        area_thresh = canny_areas_peak - ( 1.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_peak)]) )
+
+        # Use photutils to segment map
+        seg_map = photutils.detect_sources(self.r.detmap.copy(), threshold=seg_thresh, npixels=area_thresh, connectivity=8)
+
+        """# Crude test deblanding
+        seg_areas = np.unique(seg_map, return_counts=True)[1].astype(float)
+        conv_map = astropy.convolution.convolve_fft(self.r.detmap.copy(), rgb.r.canny_stack, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
+        tophat_kernel = astropy.convolution.Tophat2DKernel( (np.median(canny_areas)/np.pi)**0.5 )
+        deblend_map = photutils.deblend_sources(in_map, seg_map, npixels=area_thresh, filter_kernel=tophat_kernel, labels=None, nlevels=1024, contrast=0.000000001, mode='exponential', connectivity=8, relabel=True)
+        grey_erode_structure = scipy.ndimage.generate_binary_structure(2,1)
+        grey_erode_map = scipy.ndimage.grey_erosion(in_map, structure=grey_erode_structure, mode='reflect')
+        astropy.io.fits.writeto('/home/chris/red_grey_erode.fits', grey_erode_map, clobber=True)"""
+
+        # Record segment map
+        self.segmap = seg_map
 
 
 
