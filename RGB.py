@@ -87,8 +87,8 @@ class RGB():
 
 
 
-    def BlackOnWhite(self):
-        """ A method that determines whether an image is on a black background; if not, image is inverted so that it is """
+    def CannyMask(self):
+        """ A method that creates a background mask using the Canny features from all three channels """
 
         # Do a rough Canny-based cell extraction on each channel
         self.canny_cube = np.zeros(self.cube.shape)
@@ -96,14 +96,30 @@ class RGB():
             self.iter[i].CannyCells()
             self.canny_cube[:,:,i] = self.iter[i].canny_features
 
+        # Whilst we're here, do Canny extraction on the coadd as well, for later use
+        self.coadd.CannyCells()
+
         # Coadd the Canny feature maps from each channel
         canny_coadd = np.sum(self.canny_cube, axis=2)
         canny_where = np.where(canny_coadd>0)
         #astropy.io.fits.writeto('/home/chris/canny_features.fits', canny_coadd, clobber=True)
 
+        # Create Canny mask, and record
+        canny_mask = canny_coadd.copy()
+        canny_coadd[canny_where] = 1
+        self.canny_mask = canny_mask
+
+
+
+    def BlackOnWhite(self):
+        """ A method that determines whether an image is on a black background; if not, image is inverted so that it is """
+
+
+
+
         # Flag pixel values for pixels within Canny features
         cube = self.cube.copy().astype(int)
-        canny_where = np.where(canny_coadd>0)
+        canny_where = np.where(self.canny_mask>0)
         for i in range(0,cube.shape[2]):
             cube[:,:,i][canny_where] = -99
 
