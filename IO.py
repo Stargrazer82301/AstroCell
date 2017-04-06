@@ -35,7 +35,7 @@ def LoadRGB(in_path):
 
 
 class Bunch:
-    """ Convenience class for gathering related data """
+    """ Convenience class for gathering related data in an object """
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
 
@@ -60,5 +60,8 @@ class TempDir():
         if data.dtype == 'bool':
             data = data.astype(int)
         astropy.io.fits.writeto(os.path.join(self.dir,name), data, clobber=True)
+
+
+
 
 

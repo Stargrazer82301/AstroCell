@@ -110,6 +110,7 @@ class Image():
 
 
 
+
     def CannyCellStack(self):
         """ Method that stacks upon positions of identified features, to create a matched filter """
 
@@ -161,7 +162,7 @@ class Image():
 
 
 
-    def ThreshSegment(self):
+    def ThreshSegment(self, bg_mask):
         """ A method that uses basic threshold segmenting to identify cells """
 
         # Perform sigma clipping of non-Canny pixels, to charactarise background
