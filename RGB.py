@@ -54,10 +54,10 @@ class RGB():
         self.b = AstroCell.Image.Image(self.cube[:,:,2].copy())
 
         # Create tuple containing each channel's Image object for iterating over
-        self.iter = (self.r,self.g,self.b)
+        self.iter = (self.b,self.g,self.r)
 
         # Make tuple of strings giving name of each channel, to use for iteration
-        self.channels = ('r','g','b')
+        self.channels = ('b','g','r')
 
         # Set data type for each channel to be float
         for channel in self.iter:
@@ -77,10 +77,10 @@ class RGB():
         self.coadd = AstroCell.Image.Image(coadd)
 
         # Create tuple containing each channel's Image object (including the coadd) for iterating over
-        self.iter_coadd = (self.r,self.g,self.b,self.coadd)
+        self.iter_coadd = (self.b,self.g,self.r,self.coadd)
 
         # Make tuple of strings giving name of each channel (including the coadd), to use for iteration
-        self.channels = ('r','g','b','coadd')
+        self.channels = ('b','g','r','coadd')
 
         # Record name of coadd channel
         self.coadd.name = 'coadd'
@@ -90,19 +90,16 @@ class RGB():
     def CannyMask(self):
         """ A method that creates a background mask using the Canny features from all three channels """
 
-        # Do a rough Canny-based cell extraction on each channel
-        self.canny_cube = np.zeros(self.cube.shape)
-        for i in range(0, len(self.iter)):
-            self.iter[i].CannyCells()
-            self.canny_cube[:,:,i] = self.iter[i].canny_features
-
-        # Whilst we're here, do Canny extraction on the coadd as well, for later use
-        self.coadd.CannyCells()
+        # Do a rough Canny-based cell extraction on each channel, including the coadd
+        self.canny_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
+        for i in range(0, len(self.iter_coadd)):
+            self.iter_coadd[i].CannyCells()
+            self.canny_cube[:,:,i] = self.iter_coadd[i].canny_features
 
         # Coadd the Canny feature maps from each channel
         canny_coadd = np.sum(self.canny_cube, axis=2)
         canny_where = np.where(canny_coadd>0)
-        #astropy.io.fits.writeto('/home/chris/canny_features.fits', canny_coadd, clobber=True)
+        #astropy.io.fits.writeto('/home/chris/canny_coadd.fits', canny_coadd, clobber=True)
 
         # Create Canny mask, and record
         canny_mask = canny_coadd.copy()
@@ -113,9 +110,6 @@ class RGB():
 
     def BlackOnWhite(self):
         """ A method that determines whether an image is on a black background; if not, image is inverted so that it is """
-
-
-
 
         # Flag pixel values for pixels within Canny features
         cube = self.cube.copy().astype(int)
@@ -164,20 +158,20 @@ class RGB():
         canny_diams = 2.0 * np.sqrt( canny_areas / np.pi)
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
-        kernel_size = 3.0 * np.percentile(canny_diams, 90.0)
+        kernel_size = 5.0 * np.percentile(canny_diams, 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
         # Iterate over each channel, applying a minimum filter to each
         for channel in self.iter_coadd:
 
-            # Create background map by excluding Canny cells from image, then smooth using a Gaussian filter
+           # Create background map by excluding Canny cells from image, then smooth using a Gaussian filter
             canny_bg_map = channel.map.copy().astype(float)
             canny_bg_map[ np.where(canny_coadd>0) ] = np.NaN
             conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel,
                                                         interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
             conv_map[ np.where( np.isnan(channel.map)==True ) ] = np.NaN
 
-            # Subtract Gaussian from original image to make detmap
+            # Subtract smoothed background map from original image to make detmap
             conv_sub = channel.map - conv_map
 
             # Re-set zero level, and record map to object
