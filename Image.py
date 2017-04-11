@@ -85,7 +85,7 @@ class Image():
                 out_image[:,i] = np.array([np.nan]*in_image.shape[0])
 
         # Use a convolved version of the input map, with interpolation over NaN pixels, to impute replacement values for NaNs
-        kernel = astropy.convolution.kernels.Gaussian2DKernel(1.5)
+        kernel = astropy.convolution.kernels.Gaussian2DKernel(5.0)
         conv_map = astropy.convolution.convolve_fft(out_image, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect')
         out_image[np.where(np.isnan(out_image))] = conv_map[np.where(np.isnan(out_image))]
 
@@ -130,7 +130,7 @@ class Image():
         stack = np.NaN * np.zeros([int(cutout_diam), int(cutout_diam), len(loop_features)])
 
         # Create a padded version of the features map (and binary version of it), to enable creating cutouts
-        pad_map = np.pad(self.map.astype(float), pad_width=cutout_rad+1, mode='constant', constant_values=np.NaN)
+        pad_map = np.pad(self.detmap.astype(float), pad_width=cutout_rad+1, mode='constant', constant_values=np.NaN)
         pad_canny_features = np.pad(self.canny_features.astype(float), pad_width=cutout_rad+1, mode='constant', constant_values=np.NaN)
         pad_canny_bin = pad_canny_features.copy()
         pad_canny_bin[np.where(pad_canny_bin>0)] = 1
@@ -162,28 +162,34 @@ class Image():
 
 
 
-    def ThreshSegment(self, bg_mask):
+    def ThreshSegment(self, bg_mask=None):
         """ A method that uses basic threshold segmenting to identify cells """
 
-        # Perform sigma clipping of non-Canny pixels, to charactarise background
-        bg_map = self.r.detmap.copy().astype(float)
-        bg_map[ np.where(rgb.r.canny_features>0) ] = np.NaN
-        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=5.0)
+        # Perform sigma clipping, to charactarise background
+        in_map = self.detmap.copy().astype(float)
+        bg_map = in_map.copy()
+        if bg_mask!=None:
+            bg_map[ np.where(bg_mask>0) ] = np.NaN
+        bg_clip = SigmaClip(bg_map, median=False, sigma_thresh=3.0)
 
         # Background subtract map, and determine segmentation threshold
-        self.r.detmap -= bg_clip[1]
+        in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
         seg_thresh = 1.0 * bg_clip[0]
 
-        # Use areas of canny features to decide minimum pixel area limit for segments
+        # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
         canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
         canny_areas_peak = SigmaClip(canny_areas, median=True, sigma_thresh=1.0)[1]
-        area_thresh = canny_areas_peak - ( 1.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_peak)]) )
+        area_thresh = int( np.round( canny_areas_peak - ( 2.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_peak)]) ) ) )
+
+        # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
+        if np.isnan(area_thresh):
+            area_thresh = canny_areas_peak
 
         # Use photutils to segment map
-        seg_map = photutils.detect_sources(self.r.detmap.copy(), threshold=seg_thresh, npixels=area_thresh, connectivity=8)
-
-        """# Crude test deblanding
+        seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
+        pdb.set_trace()
+        """# Crude test of deblending
         seg_areas = np.unique(seg_map, return_counts=True)[1].astype(float)
         conv_map = astropy.convolution.convolve_fft(self.r.detmap.copy(), rgb.r.canny_stack, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
         tophat_kernel = astropy.convolution.Tophat2DKernel( (np.median(canny_areas)/np.pi)**0.5 )
