@@ -189,6 +189,7 @@ class Image():
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
+        seg_map = AstroCell.Process.LabelShuffle(seg_map)
 
         """# Crude test of deblending
         seg_areas = np.unique(seg_map, return_counts=True)[1].astype(float)

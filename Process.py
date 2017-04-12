@@ -60,6 +60,7 @@ def CannyCells(in_image, sigma=2.0):
     canny_fill = scipy.ndimage.binary_fill_holes(canny_cells, structure=scipy.ndimage.generate_binary_structure(2,1))
     canny_dilate = scipy.ndimage.binary_dilation(canny_fill, iterations=1, structure=scipy.ndimage.generate_binary_structure(2,2))
     canny_cells = skimage.measure.label(canny_dilate, connectivity=1)
+    canny_cells = LabelShuffle(canny_cells)
 
     # Return final image
     return canny_cells
@@ -86,6 +87,28 @@ def ProximatePrune(points, distance):
     # Return un-pruned points
     keep = np.setdiff1d( np.arange(pairs.shape[0]), prune )
     return np.array([ points[:,0][keep], points[:,1][keep] ])
+
+
+
+def LabelShuffle(label_map_old):
+    """ Function that takes a labelled segmented map and generates random labels, for more aesthetically pleasing visualisations """
+
+    # Find each label in map
+    label_list = np.unique(label_map_old)
+    label_shuffle = np.random.permutation(label_list[np.where(label_list>0)])
+    label_map_new = label_map_old.copy()
+
+    # Loop over labels, picking a new label for each
+    for label_old in label_list:
+        if label_old==0:
+            continue
+        label_new = label_shuffle.shape[0] + np.random.choice(label_shuffle, replace=False)
+        label_map_new[np.where(label_map_old==label_old)] = label_new
+
+    # Return shuffled map
+    return label_map_new
+
+
 
 
 
