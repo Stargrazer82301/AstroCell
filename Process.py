@@ -3,6 +3,7 @@ import pdb
 import time
 import numpy as np
 import scipy.stats
+import scipy.spatial
 import matplotlib.pylab as plt
 import astropy.logger
 astropy.log.setLevel('ERROR')
@@ -62,6 +63,29 @@ def CannyCells(in_image, sigma=2.0):
 
     # Return final image
     return canny_cells
+
+
+
+def ProximatePrune(points, distance):
+    """ Function that takes an array containing 2D coordinats, and removes any that lie within a given distance of other points using a KD tree """
+
+    # Construct KD tree, and find pairs within exclusion distance
+    tree = scipy.spatial.KDTree(points.tranpose)
+    pairs = tree.query_pairs(distance)
+
+    # Loop over pairs, pruning the first member encountered
+    prune = []
+    for pair in pairs:
+        if pair[0] in prune:
+            continue
+        if pair[1] in prune:
+            continue
+        else:
+            prune.append(pair[1])
+
+    # Return un-pruned points
+    keep = np.setdiff1d( np.arange(pairs.shape[0]), prune )
+    return np.array([ points[:,0][keep], points[:,1][keep] ])
 
 
 
