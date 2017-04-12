@@ -165,6 +165,16 @@ class Image():
     def ThreshSegment(self, bg_mask=None):
         """ A method that uses basic threshold segmenting to identify cells """
 
+        # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
+        canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+        canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
+        area_thresh = int( np.round( canny_areas_clip[1] - ( 2.0 * canny_areas_clip[0] ) ) )
+        #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
+
+        # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
+        if np.isnan(area_thresh):
+            area_thresh = canny_areas_clip[1]
+
         # Perform sigma clipping, to charactarise background
         in_map = self.detmap.copy().astype(float)
         bg_map = in_map.copy()
@@ -175,20 +185,11 @@ class Image():
         # Background subtract map, and determine segmentation threshold
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 1.0 * bg_clip[0]
-
-        # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
-        canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
-        canny_areas_peak = SigmaClip(canny_areas, median=True, sigma_thresh=1.0)[1]
-        area_thresh = int( np.round( canny_areas_peak - ( 2.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_peak)]) ) ) )
-
-        # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
-        if np.isnan(area_thresh):
-            area_thresh = canny_areas_peak
+        seg_thresh = 1.5 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
-        pdb.set_trace()
+
         """# Crude test of deblending
         seg_areas = np.unique(seg_map, return_counts=True)[1].astype(float)
         conv_map = astropy.convolution.convolve_fft(self.r.detmap.copy(), rgb.r.canny_stack, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
@@ -198,8 +199,10 @@ class Image():
         grey_erode_map = scipy.ndimage.grey_erosion(in_map, structure=grey_erode_structure, mode='reflect')
         astropy.io.fits.writeto('/home/chris/red_grey_erode.fits', grey_erode_map, clobber=True)"""
 
-        # Record segment map
-        self.segmap = seg_map
+        # Record attributes
+        self.thresh_segmap = seg_map
+        self.thresh_level = seg_thresh
+        self.thresh_area = area_thresh
 
 
 
