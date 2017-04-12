@@ -71,7 +71,7 @@ def ProximatePrune(points, distance):
     """ Function that takes an array containing 2D coordinats, and removes any that lie within a given distance of other points using a KD tree """
 
     # Construct KD tree, and find pairs within exclusion distance
-    tree = scipy.spatial.KDTree(points.tranpose)
+    tree = scipy.spatial.KDTree(points.transpose)
     pairs = tree.query_pairs(distance)
 
     # Loop over pairs, pruning the first member encountered
@@ -107,8 +107,6 @@ def LabelShuffle(label_map_old):
 
     # Return shuffled map
     return label_map_new
-
-
 
 
 

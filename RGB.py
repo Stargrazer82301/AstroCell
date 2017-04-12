@@ -1,7 +1,6 @@
 # Import smorgasbord
+import os
 import pdb
-import time
-import copy
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -12,8 +11,6 @@ import astropy.stats
 import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
-import photutils
-import skimage.feature
 import PIL.Image
 import AstroCell.Process
 import AstroCell.Image
@@ -33,6 +30,8 @@ class RGB():
 
         # Store path for future use
         self.path = in_path
+        self.dir_name = os.path.split(in_path)[0]
+        self.file_name = os.path.split(in_path)[1]
 
         # Read in the image file, and convert to array
         bitmap_image = PIL.Image.open(in_path)

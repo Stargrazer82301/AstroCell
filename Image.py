@@ -1,7 +1,5 @@
 # Import smorgasbord
 import pdb
-import time
-import copy
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -17,7 +15,6 @@ import skimage.feature
 import scipy.ndimage.measurements
 import PIL.Image
 from ChrisFuncs import SigmaClip
-from ChrisFuncs.Photom import EllipseMask
 import AstroCell.Process
 plt.ioff()
 
@@ -168,7 +165,7 @@ class Image():
         # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
         canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
         canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
-        area_thresh = int( np.round( canny_areas_clip[1] - ( 2.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
+        area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
         #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
 
         # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
@@ -190,15 +187,6 @@ class Image():
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
         seg_map = AstroCell.Process.LabelShuffle(seg_map)
-
-        """# Crude test of deblending
-        seg_areas = np.unique(seg_map, return_counts=True)[1].astype(float)
-        conv_map = astropy.convolution.convolve_fft(self.r.detmap.copy(), rgb.r.canny_stack, interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
-        tophat_kernel = astropy.convolution.Tophat2DKernel( (np.median(canny_areas)/np.pi)**0.5 )
-        deblend_map = photutils.deblend_sources(in_map, seg_map, npixels=area_thresh, filter_kernel=tophat_kernel, labels=None, nlevels=1024, contrast=0.000000001, mode='exponential', connectivity=8, relabel=True)
-        grey_erode_structure = scipy.ndimage.generate_binary_structure(2,1)
-        grey_erode_map = scipy.ndimage.grey_erosion(in_map, structure=grey_erode_structure, mode='reflect')
-        astropy.io.fits.writeto('/home/chris/red_grey_erode.fits', grey_erode_map, clobber=True)"""
 
         # Record attributes
         self.thresh_segmap = seg_map
