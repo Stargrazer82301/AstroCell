@@ -38,7 +38,7 @@ def CannyCells(in_image, sigma=2.0):
     # Run map through one iteration of binary closing, to close up gaps in the perimeters of canny edges
     canny_close = scipy.ndimage.binary_closing(canny, iterations=1, structure=scipy.ndimage.generate_binary_structure(2,1))
 
-    # Label closed Canny image
+    # Label closed Canny image features
     canny_cell_labels = skimage.measure.label(np.invert(canny_close), connectivity=1)
 
     # Record number of pixels in each labelled feature
@@ -46,7 +46,7 @@ def CannyCells(in_image, sigma=2.0):
     canny_cell_areas = canny_cell_areas[np.where(canny_cell_areas>0)]
 
     # Clip label areas, to identify threshold above which cell regions are large enough to likely be spurious
-    labels_clip = SigmaClip(canny_cell_areas, median=True, sigma_thresh=4.0)
+    labels_clip = SigmaClip(canny_cell_areas, median=True, sigma_thresh=5.0)
     labels_area_thresh = np.max(labels_clip[2])
     labels_exclude = np.arange(0,canny_cell_areas.size)[ np.where( (canny_cell_areas>labels_area_thresh) | (canny_cell_areas<=5) ) ]
 
@@ -54,6 +54,11 @@ def CannyCells(in_image, sigma=2.0):
     canny_cells = canny_cell_labels.copy().flatten()
     canny_cells[np.in1d(canny_cells,labels_exclude)] = 0
     canny_cells = np.reshape(canny_cells, canny_cell_labels.shape)
+
+    # Fill cell regions, dilate them by 1 pixel (to account for the width of the Canny border), then relabel
+    canny_fill = scipy.ndimage.binary_fill_holes(canny_cells, structure=scipy.ndimage.generate_binary_structure(2,1))
+    canny_dilate = scipy.ndimage.binary_dilation(canny_fill, iterations=1, structure=scipy.ndimage.generate_binary_structure(2,2))
+    canny_cells = skimage.measure.label(canny_dilate, connectivity=1)
 
     # Return final image
     return canny_cells
