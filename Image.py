@@ -168,7 +168,7 @@ class Image():
         # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
         canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
         canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
-        area_thresh = int( np.round( canny_areas_clip[1] - ( 2.0 * canny_areas_clip[0] ) ) )
+        area_thresh = int( np.round( canny_areas_clip[1] - ( 2.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
         #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
 
         # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
