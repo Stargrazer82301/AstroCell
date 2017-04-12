@@ -17,6 +17,7 @@ import skimage.feature
 import PIL.Image
 import AstroCell.Process
 import AstroCell.Image
+from ChrisFuncs import SigmaClip
 plt.ioff()
 
 
@@ -158,17 +159,25 @@ class RGB():
         canny_diams = 2.0 * np.sqrt( canny_areas / np.pi)
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
-        kernel_size = 5.0 * np.percentile(canny_diams, 90.0)
+        canny_diams_clip = SigmaClip(canny_diams, median=True)
+        kernel_size = 2.0 * np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
         # Iterate over each channel, applying a minimum filter to each
         for channel in self.iter_coadd:
 
-           # Create background map by excluding Canny cells from image, then smooth using a Gaussian filter
+            # Create background map by excluding Canny cells from image
             canny_bg_map = channel.map.copy().astype(float)
             canny_bg_map[ np.where(canny_coadd>0) ] = np.NaN
-            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel,
-                                                        interpolate_nan=True, normalize_kernel=True, boundary='reflect', allow_huge=True)
+            canny_bg_fill = SigmaClip(canny_bg_map, median=True, sigma_thresh=3.0)[1]
+
+            # Also exclude aberantly bright pixels from background map
+            canny_bg_clip = SigmaClip(canny_bg_map, median=True, sigma_thresh=5.0)
+            canny_bg_map[ np.where(canny_bg_map>(canny_bg_clip[1]+(5.0*canny_bg_clip[0]))) ] = np.NaN
+
+            # Smooth background mapusing a Gaussian filter
+            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, interpolate_nan=True, normalize_kernel=True, quiet=True,
+                                                        boundary='reflect', fill_value=canny_bg_fill, allow_huge=True)
             conv_map[ np.where( np.isnan(channel.map)==True ) ] = np.NaN
 
             # Subtract smoothed background map from original image to make detmap
