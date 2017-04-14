@@ -69,6 +69,18 @@ class RGB():
 
 
 
+    def TempDir(self, temp):
+        """ Brief method that records loation of current temporary directory to the RGB object and it's constituent Image objects """
+
+        # Record temp dir location attribute to self
+        self.temp = temp
+
+        # Record temp dir location attribute to Image objects
+        for i in range(0, len(self.iter)):
+            self.iter[i].temp = temp
+
+
+
     def MakeCoadd(self):
         """ Method that adds an new Image object, that's a coadd of the three channels """
 
@@ -82,8 +94,9 @@ class RGB():
         # Make tuple of strings giving name of each channel (including the coadd), to use for iteration
         self.channels = ('b','g','r','coadd')
 
-        # Record name of coadd channel
+        # Record name of coadd channel, and location of temp dir
         self.coadd.name = 'coadd'
+        self.coadd.temp = self.temp
 
 
 
