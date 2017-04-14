@@ -1,9 +1,11 @@
 # Import smorgasbord
 import pdb
+import multiprocessing as mp
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
 import astropy.logger
+import copy
 astropy.log.setLevel('ERROR')
 import astropy.convolution
 import astropy.stats
@@ -13,7 +15,7 @@ import astropy.io.fits
 import photutils
 import skimage.feature
 import scipy.ndimage.measurements
-import PIL.Image
+import skimage.segmentation
 from ChrisFuncs import SigmaClip
 import AstroCell.Process
 plt.ioff()
@@ -81,10 +83,13 @@ class Image():
             if np.nanstd(in_image[:,i]) == 0:
                 out_image[:,i] = np.array([np.nan]*in_image.shape[0])
 
-        # Use a convolved version of the input map, with interpolation over NaN pixels, to impute replacement values for NaNs
+        """# Use a convolved version of the input map, with interpolation over NaN pixels, to impute replacement values for NaNs
         kernel = astropy.convolution.kernels.Gaussian2DKernel(5.0)
         conv_map = astropy.convolution.convolve_fft(out_image, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect')
-        out_image[np.where(np.isnan(out_image))] = conv_map[np.where(np.isnan(out_image))]
+        out_image[np.where(np.isnan(out_image))] = conv_map[np.where(np.isnan(out_image))]"""
+
+        # Use map median to impute replacement value for NaNs
+        out_image[np.where(np.isnan(out_image))] = np.nanmedian(in_image)
 
         # Overwrite existing map with cleaned version
         self.map = out_image
@@ -182,7 +187,7 @@ class Image():
         # Background subtract map, and determine segmentation threshold
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 1.5 * bg_clip[0]
+        seg_thresh = 2.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
@@ -192,6 +197,48 @@ class Image():
         self.thresh_segmap = seg_map
         self.thresh_level = seg_thresh
         self.thresh_area = area_thresh
+
+
+
+    def WaterWalkerDeblend(self, seg_map=None):
+        """ A method that uses a Monte Carlo series of watershed or random walker segmentations to deblend segmented cell features """
+
+        # If no segment map specified, use map from thesholding segmentation
+        if seg_map==None:
+            seg_map = self.thresh_segmap
+
+        # Find areas of thresholding segmentation features
+        thresh_areas = np.unique(self.thresh_segmap, return_counts=True)[1].astype(float)
+
+        # Prepare parameters for Monte Carlo segmenations
+        iter_total = 1000
+        method = 'water'
+        if method == 'water':
+            processes = mp.cpu_count()-1
+        elif method == 'walker':
+            processes = (mp.cpu_count()-1) // 2
+
+        # Run random iterations in parallel, for speed
+        waterwalk_map_list = []
+        pool = mp.Pool(processes=processes)
+        for i in range(0, iter_total):
+            waterwalk_map_list.append( pool.apply_async( AstroCell.Process.WaterWalkerWrapper, args=(self, seg_map, iter_total, method,) ) )
+            #waterwalk_map_list.append( AstroCell.Process.WaterWalkerWrapper(copy.deepcopy(self), seg_map, iter_total, method) )
+        pool.close()
+        pool.join()
+        waterwalk_map_list = [output.get() for output in waterwalk_map_list]
+
+        # Convert walker maps to boundry maps
+        border_map = np.zeros(seg_map.shape)
+        for i in range(0, len(waterwalk_map_list)):
+            border_map += skimage.segmentation.find_boundaries(waterwalk_map_list[i], connectivity=2)
+
+
+        pdb.set_trace()
+
+        astropy.io.fits.writeto('/home/chris/det_map.fits', self.detmap, clobber=True)
+        astropy.io.fits.writeto('/home/chris/thresh_seg_map.fits', self.thresh_segmap, clobber=True)
+        astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)
 
 
 
