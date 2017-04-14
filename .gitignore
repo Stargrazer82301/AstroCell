@@ -57,6 +57,9 @@ scellaneous/*.txt
 *.ods
 *.sav.py
 
+# Test data
+/Test/Test_Data
+
 
 
 
