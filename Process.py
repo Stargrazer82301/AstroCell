@@ -63,11 +63,14 @@ def CannyCells(in_image, sigma=2.0):
     canny_dilate = scipy.ndimage.binary_dilation(canny_fill, iterations=1, structure=scipy.ndimage.generate_binary_structure(2,2))
     canny_cells = skimage.measure.label(canny_dilate, connectivity=1)
     canny_cells = LabelShuffle(canny_cells)
+    #astropy.io.fits.writeto('/home/chris/canny_cells.fits', canny_cells, clobber=True)
 
     # Catch and fix when most of map is a 'feature'
-    mode_frac = np.where(canny_cells==scipy.stats.mode(canny_cells))[0].shape[0] / canny_cells.size
-    if mode_frac > 0.5:
-        canny_cells = np.zeros(canny_cells.shape)
+    mode = scipy.stats.mode(canny_cells.flatten())[0][0]
+    if mode != 0:
+        mode_frac = np.where(canny_cells==mode)[0].shape[0] / canny_cells.size
+        if mode_frac > 0.5:
+            canny_cells = np.zeros(canny_cells.shape).astype(int)
 
     # Return final image
     return canny_cells

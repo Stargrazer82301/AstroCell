@@ -167,15 +167,24 @@ class Image():
     def ThreshSegment(self, bg_mask=None):
         """ A method that uses basic threshold segmenting to identify cells """
 
+        # If map is features, record null values and move on
+
+
         # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
-        canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
-        canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
-        area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
-        #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
+        if np.nanstd(self.canny_features) == 0:
+            area_thresh = 0.0
+        else:
+            canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+            canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
+            area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
+            #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
 
         # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
         if np.isnan(area_thresh):
             area_thresh = canny_areas_clip[1]
+
+        # Handle maps with no features
+        area_thresh = np.max([1.0, area_thresh])
 
         # Perform sigma clipping, to charactarise background
         in_map = self.detmap.copy().astype(float)
@@ -207,11 +216,16 @@ class Image():
         if seg_map==None:
             seg_map = self.thresh_segmap
 
+         # If segmentation map contains no segments, return null results
+        if np.max(seg_map) == 0:
+            self.thresh_segmap = seg_map
+            return
+
         # Find areas of thresholding segmentation features
         thresh_areas = np.unique(self.thresh_segmap, return_counts=True)[1].astype(float)
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 1000
+        iter_total = 500
         method = 'water'
         if method == 'water':
             processes = mp.cpu_count()-1
