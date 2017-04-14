@@ -1,6 +1,8 @@
 # Import smorgasbord
+import os
 import pdb
-import time
+import gc
+import copy
 import numpy as np
 import scipy.stats
 import scipy.spatial
@@ -9,7 +11,7 @@ import astropy.logger
 astropy.log.setLevel('ERROR')
 import astropy.io.fits
 import skimage.feature
-from ChrisFuncs import SigmaClip
+from ChrisFuncs import SigmaClip, ProgressDir
 plt.ioff()
 
 
@@ -62,6 +64,11 @@ def CannyCells(in_image, sigma=2.0):
     canny_cells = skimage.measure.label(canny_dilate, connectivity=1)
     canny_cells = LabelShuffle(canny_cells)
 
+    # Catch and fix when most of map is a 'feature'
+    mode_frac = np.where(canny_cells==scipy.stats.mode(canny_cells))[0].shape[0] / canny_cells.size
+    if mode_frac > 0.5:
+        canny_cells = np.zeros(canny_cells.shape)
+
     # Return final image
     return canny_cells
 
@@ -71,7 +78,7 @@ def ProximatePrune(points, distance):
     """ Function that takes an array containing 2D coordinats, and removes any that lie within a given distance of other points using a KD tree """
 
     # Construct KD tree, and find pairs within exclusion distance
-    tree = scipy.spatial.KDTree(points.transpose)
+    tree = scipy.spatial.KDTree(points)
     pairs = tree.query_pairs(distance)
 
     # Loop over pairs, pruning the first member encountered
@@ -85,8 +92,9 @@ def ProximatePrune(points, distance):
             prune.append(pair[1])
 
     # Return un-pruned points
-    keep = np.setdiff1d( np.arange(pairs.shape[0]), prune )
-    return np.array([ points[:,0][keep], points[:,1][keep] ])
+    keep = np.setdiff1d( np.arange(points.shape[0]), prune )
+    points = np.array([ points[:,0][keep], points[:,1][keep] ]).transpose()
+    return points
 
 
 
@@ -107,6 +115,64 @@ def LabelShuffle(label_map_old):
 
     # Return shuffled map
     return label_map_new
+
+
+
+def WaterWalkerWrapper(Image, seg_map, iter_total, method='water'):
+    """ Wrapper around random walker segmentation function, for ease of parallelisation """
+
+    # Make copy of input Image object to work with
+    Image = copy.deepcopy(Image)
+
+    # Decide how many markers to generate, based on number of Canny features, and the proportion of the map they occupy
+    n_markers = int( 5.0 * np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+
+    # Generate marker coordinates
+    markers = np.random.random(size=(n_markers,2))
+    markers[:,0] *= Image.map.shape[0]
+    markers[:,1] *= Image.map.shape[1]
+
+    # Prune markers located too close to each other
+    markers = ProximatePrune(markers, 0.5*np.sqrt(Image.thresh_area/np.pi))
+
+    # Convert marker points into a marker array
+    marker_map = np.zeros(Image.map.shape, dtype=np.int)
+    for i in range(0, markers.shape[0]):
+        marker_map[ int(markers[i,0]), int(markers[i,1]) ] = i+1
+
+    # Remove markers that do not lie within segmented objects
+    marker_map[np.where(seg_map==0)] = 0
+
+    # If random walking choose appropriate algorithm
+    if method.lower() == 'walker':
+        try:
+            import pyamg
+            algmorithm = pyamg.__version__
+            algmorithm = 'cg_mg'
+        except ImportError:
+            algmorithm = 'cg'
+
+        # Ccnduct random walker segmentation
+        in_map = Image.detmap.copy()
+        out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=130, mode=algmorithm, tol=0.001,
+                                                      copy=True, multichannel=False, return_full_prob=False, spacing=None)
+
+    # If watershedding
+    elif method.lower() == 'water':
+        mask_map = np.zeros(seg_map.shape).astype(bool)
+        mask_map[np.where(seg_map>0)] = True
+        in_map = Image.detmap.copy()
+        in_map = (-1.0 * in_map) + np.nanmax(in_map)
+        out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=1,
+                                             offset=None, mask=mask_map, compactness=0, watershed_line=False)
+
+    # Estimate completion time
+    iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
+    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+'; estimated completion time '+str(time_est)+'.')
+
+    # Clean up, and return output segmentation map
+    gc.collect
+    return out_map
 
 
 

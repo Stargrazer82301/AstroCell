@@ -30,7 +30,17 @@ import AstroCell.Image
 import AstroCell.IO
 plt.ioff()
 
-# Include reloads, to handle changes
+# Identify location and set Dropbox path accordingly
+import socket
+location = socket.gethostname()
+if location == 'Monolith':
+    dropbox = 'E:\\Users\\Chris\\Dropbox\\'
+if location == 'sputnik':
+    dropbox = '/home/chris/Dropbox/'
+if location == 'saruman':
+    dropbox = '/home/herdata/spx7cjc/Dropbox/'
+
+# Include reloads, to handle any recent changes
 import importlib
 importlib.reload(AstroCell)
 importlib.reload(AstroCell.RGB)
@@ -39,67 +49,69 @@ importlib.reload(AstroCell.IO)
 
 
 
-# State input directory and create output directory inside it
-in_dir = '/home/chris/Data/AstroCell/Flourescant/Liver/APCFLOX1668'#'/home/chris/Data/AstroCell/Histochemial/3100_zeb1/'#'/home/chris/Data/AstroCell/Histochemial/3100_zeb1/'#'/home/chris/Data/AstroCell/Flourescant/Mammary/Ref_LO'
-out_dir = os.path.join(in_dir, 'AstroCell_Output')
-if os.path.exists(out_dir):
-    shutil.rmtree(out_dir)
-os.mkdir(out_dir)
+# Main task
+if __name__ == '__main__':
 
-# Initialise temp directory class
-temp = AstroCell.IO.TempDir(out_dir)
+    # State input directory and create output directory inside it
+    test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
+    img_dir = 'Flourescant/Mammary/Ref_LO'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
+    in_dir = os.path.join(test_dir, img_dir)
+    out_dir = os.path.join(in_dir, 'AstroCell_Output')
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
+    os.mkdir(out_dir)
 
-# Identify and loop over all image files in input directory
-in_files = os.listdir(in_dir)
-in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
-in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
-for in_image in np.random.permutation(in_images):
+    # Initialise temp directory class
+    temp = AstroCell.IO.TempDir(out_dir)
 
-
-
-    # Read in raw image, constructing an AstroCell RGB object
-    rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
-
-    # Clean edges of images
-    [ channel.CleanEdges() for channel in rgb.iter ]
-
-    # Create coadd of all three channels
-    rgb.MakeCoadd()
-
-    # Craete Canny-based mask identifying pixels that contain cells
-    rgb.CannyMask()
-
-    # Determine if image is black-background; if not, set it so that it is
-    rgb.BlackOnWhite()
-
-    # Remove large-scale background structures from image (to create source extraction map)
-    rgb.DetFilter()
-
-    """# Construct basic matched filter in each channel, using Canny features
-    [ channel.CannyCellStack() for channel in rgb.iter_coadd ]"""
-
-    # Use canny features to create markers for cells and background, to anchor segmentation
-    [ channel.ThreshSegment(rgb.canny_mask) for channel in rgb.iter_coadd ]
+    # Identify and loop over all image files in input directory
+    in_files = os.listdir(in_dir)
+    in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
+    in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
+    for in_image in np.random.permutation(in_images):
 
 
 
-    sdfdsfdsdsfdsvds
+        # Read in raw image, constructing an AstroCell RGB object
+        rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
 
-    astropy.io.fits.writeto('/home/chris/det_map.fits', rgb.b.detmap, clobber=True)
-    astropy.io.fits.writeto('/home/chris/thresh_seg_map.fits', rgb.b.thresh_segmap, clobber=True)
+        # Pass TempDir object to RGB and Image objects
+        rgb.TempDir(temp)
+
+        # Clean edges of images
+        [ channel.CleanEdges() for channel in rgb.iter ]
+
+        # Create coadd of all three channels
+        rgb.MakeCoadd()
+
+        # Craete Canny-based mask identifying pixels that contain cells
+        rgb.CannyMask()
+
+        # Determine if image is black-background; if not, set it so that it is
+        rgb.BlackOnWhite()
+
+        # Remove large-scale background structures from image (to create source extraction map)
+        rgb.DetFilter()
+
+        """# Construct basic matched filter in each channel, using Canny features
+        [ channel.CannyCellStack() for channel in rgb.iter_coadd ]"""
+
+        # Use canny features to create markers for cells and background, to anchor segmentation
+        [ channel.ThreshSegment(rgb.canny_mask) for channel in rgb.iter_coadd ]
+
+        rgb.r.WaterWalkerDeblend()
+
+        # Use canny features to create markers for cells and background, to anchor segmentation
+        [ channel.WaterWalkerDeblend() for channel in rgb.iter_coadd ]
+
+        """# Use canny features to create markers for cells and background, to anchor segmentation
+        [ channel.WalkerDeblend() for channel in rgb.iter_coadd ]"""
 
 
 
-    # Decide how many markers to generate, based on number of Canny and threshold segmentation features found
-    n_markers = int( 5.0 * np.max([ np.unique(rgb.b.canny_features).shape[0], np.unique(rgb.b.thresh_segmap).shape[0] ]) )
+        sdfdfdsvds
 
-    # Generate marker coordinates
-    markers = np.random.random(size=(n_markers,2))
-    markers[:,0] *= rgb.b.map.shape[0]
-    markers[:,1] *= rgb.b.map.shape[1]
 
-    # Prune markers located too close to each other
-    markers = AstroCell.Process.ProximatePrune(markers, 0.5*np.sqrt(rgb.b.thresh_area/np.pi))
 
 
 
