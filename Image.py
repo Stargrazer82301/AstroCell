@@ -17,6 +17,7 @@ import skimage.feature
 import scipy.ndimage.measurements
 import skimage.segmentation
 from ChrisFuncs import SigmaClip
+from ChrisFuncs.Photom import EllipseMask
 import AstroCell.Process
 plt.ioff()
 
@@ -155,8 +156,8 @@ class Image():
             if mode_frac > 0.5:
                 canny_cells = np.zeros(canny_cells.shape).astype(int)
 
-        # Return final image
-        return canny_cells
+        # Record final image
+        self.canny_features = canny_cells
 
 
 
@@ -212,11 +213,36 @@ class Image():
 
 
 
+    def LogBlobs(self):
+        """ A method that uses Laplacian of Gaussian blob detection to identify which pixels have cells in """
+
+        # Use canny features in this channel to work out range of cell sizes
+        if np.nanstd(self.canny_features) == 0:
+            canny_areas = np.array([])
+        else:
+            canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+        canny_diams = 2.0 * np.sqrt(canny_areas/np.pi)
+        diams_clip = SigmaClip(canny_diams, median=True, sigma_thresh=3.0)
+
+        # Run LoG extraction
+        diams_thresh_min = np.min(diams_clip[2])
+        diams_thresh_max = diams_clip[1] + diams_clip[0]
+        log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max, num_sigma=50, threshold=0.05)
+
+        # Convert third column to radii
+        log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
+
+        # Loop over blobs, adding them to mask
+        log_mask = np.zeros(self.map.shape)
+        for i in range(0, log_blobs.shape[0]):
+            log_mask += EllipseMask(log_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
+        #astropy.io.fits.writeto('/home/chris/log_mask.fits', log_mask, clobber=True)
+        pdb.set_trace()
+
+
+
     def ThreshSegment(self, bg_mask=None):
         """ A method that uses basic threshold segmenting to identify cells """
-
-        # If map is features, record null values and move on
-
 
         # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
         if np.nanstd(self.canny_features) == 0:
