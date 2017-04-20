@@ -121,14 +121,14 @@ def LabelShuffle(label_map_old):
 
 
 
-def WaterWalkerWrapper(Image, seg_map, iter_total, method='water'):
-    """ Wrapper around random walker segmentation function, for ease of parallelisation """
+def WaterWrapper(Image, seg_map, iter_total):
+    """ Wrapper around watershed segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with
     Image = copy.deepcopy(Image)
 
-    # Decide how many markers to generate, based on number of Canny features, and the proportion of the map they occupy
-    n_markers = int( 5.0 * np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    # Decide how many markers to generate, based on number of already-identified features, and the proportion of the map they occupy
+    n_markers = 1000#n_markers = int( 1.0 * np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] )
 
     # Generate marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -143,31 +143,23 @@ def WaterWalkerWrapper(Image, seg_map, iter_total, method='water'):
     for i in range(0, markers.shape[0]):
         marker_map[ int(markers[i,0]), int(markers[i,1]) ] = i+1
 
-    # Remove markers that do not lie within segmented objects
-    marker_map[np.where(seg_map==0)] = 0
+    """# Remove markers that do not lie within segmented objects
+    marker_map[np.where(seg_map==0)] = 0"""
 
-    # If random walking choose appropriate algorithm
-    if method.lower() == 'walker':
-        try:
-            import pyamg
-            algmorithm = pyamg.__version__
-            algmorithm = 'cg_mg'
-        except ImportError:
-            algmorithm = 'cg'
+    # Create mask and invert map and then conduct segmentation
+    mask_map = np.zeros(seg_map.shape).astype(bool)
+    mask_map[np.where(seg_map>0)] = True
 
-        # Ccnduct random walker segmentation
-        in_map = Image.detmap.copy()
-        out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=130, mode=algmorithm, tol=0.001,
-                                                      copy=True, multichannel=False, return_full_prob=False, spacing=None)
 
-    # If watershedding
-    elif method.lower() == 'water':
-        mask_map = np.zeros(seg_map.shape).astype(bool)
-        mask_map[np.where(seg_map>0)] = True
-        in_map = Image.detmap.copy()
-        in_map = (-1.0 * in_map) + np.nanmax(in_map)
-        out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=1,
-                                             offset=None, mask=mask_map, compactness=0, watershed_line=False)
+    mask_map = None
+
+
+    in_map = Image.detmap.copy()
+    in_map = (-1.0 * in_map) + np.nanmax(in_map)
+
+    # Conduct segmentation
+    out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=1,
+                                         offset=None, mask=mask_map, compactness=0, watershed_line=False)
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
