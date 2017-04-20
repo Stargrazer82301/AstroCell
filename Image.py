@@ -96,25 +96,73 @@ class Image():
 
 
 
-    def CannyCells(self, sigma=False):
-        """ Wrapper around Process.CannyCells function """
+    def CannyBlobs(self, sigma=False):
+        """ A method that uses Canny edge detection to generate a initial guess of what regions of an image are occupied by cells """
 
-        # Call Process.CannyCells function, with or without sigma kwarg, as approproate
-        if sigma==False:
-            canny_features = AstroCell.Process.CannyCells(self.map)
-        elif isinstance(sigma, (int,float)):
-            canny_features = AstroCell.Process.CannyCells(self.map, sigma=sigma)
-        else:
-            raise Exception('Sigma value to be passed to Canny filter is not neither a float nor an int.')
+        # Create coy of map to work with
+        in_map = self.map.copy()
 
-        # Record Canny feature map to Image object
-        self.canny_features = canny_features
+        # Evaluate noise in image, via iterative sigma-clipping
+        clip = SigmaClip(self.map, median=True, sigma_thresh=3.0)
+
+        # Use noise level to generate atificial noise to add to image
+        canny_iter = 100
+        noise = np.random.normal(0.0, 0.25*clip[0], size=(in_map.shape[0],in_map.shape[1],60))
+
+        # Add each generation of random noise to image in turn, performing Canny edge filtering on each
+        canny_stack = np.zeros(noise.shape)
+        for i in range(0,noise.shape[2]):
+            canny_stack[:,:,i] = skimage.feature.canny(in_map+noise[:,:,i], sigma=sigma)
+
+        # Co-add each individual Canny iteration; Canny edges found in lots of iterations are assumed to be real
+        canny_iter_frac = 0.35
+        canny = np.sum(canny_stack, axis=2)
+        canny[ np.where( canny < (canny_iter*canny_iter_frac) ) ] = 0
+        canny[ np.where( canny >= (canny_iter*canny_iter_frac) ) ] = 1
+        #astropy.io.fits.writeto('/home/chris/canny.fits', canny.astype(float), clobber=True)
+
+        # Run map through one iteration of binary closing, to close up gaps in the perimeters of canny edges
+        canny_close = scipy.ndimage.binary_closing(canny, iterations=1, structure=scipy.ndimage.generate_binary_structure(2,1))
+
+        # Label closed Canny image features
+        canny_cell_labels = skimage.measure.label(np.invert(canny_close), connectivity=1)
+
+        # Record number of pixels in each labelled feature
+        canny_cell_areas = np.unique(canny_cell_labels, return_counts=True)[1]
+        canny_cell_areas = canny_cell_areas[np.where(canny_cell_areas>0)]
+
+        # Clip label areas, to identify threshold above which cell regions are large enough to likely be spurious
+        labels_clip = SigmaClip(canny_cell_areas, median=True, sigma_thresh=5.0)
+        labels_area_thresh = np.max(labels_clip[2])
+        labels_exclude = np.arange(0,canny_cell_areas.size)[ np.where( (canny_cell_areas>labels_area_thresh) | (canny_cell_areas<=5) ) ]
+
+        # Remove spurious labels (flattening to improve speed, then reshaping after processing)
+        canny_cells = canny_cell_labels.copy().flatten()
+        canny_cells[np.in1d(canny_cells,labels_exclude)] = 0
+        canny_cells = np.reshape(canny_cells, canny_cell_labels.shape)
+
+        # Fill cell regions, dilate them by 1 pixel (to account for the width of the Canny border), then relabel
+        canny_fill = scipy.ndimage.binary_fill_holes(canny_cells, structure=scipy.ndimage.generate_binary_structure(2,1))
+        canny_dilate = scipy.ndimage.binary_dilation(canny_fill, iterations=1, structure=scipy.ndimage.generate_binary_structure(2,2))
+        canny_cells = skimage.measure.label(canny_dilate, connectivity=1)
+        canny_cells = AstroCell.Process.LabelShuffle(canny_cells)
+        #astropy.io.fits.writeto('/home/chris/canny_cells.fits', canny_cells, clobber=True)
+
+        # Catch and fix when most of map is a 'feature'
+        mode = scipy.stats.mode(canny_cells.flatten())[0][0]
+        if mode != 0:
+            mode_frac = np.where(canny_cells==mode)[0].shape[0] / canny_cells.size
+            if mode_frac > 0.5:
+                canny_cells = np.zeros(canny_cells.shape).astype(int)
+
+        # Return final image
+        return canny_cells
 
 
 
 
     def CannyCellStack(self):
-        """ Method that stacks upon positions of identified features, to create a matched filter """
+        """ Method (redundant?) that stacks upon positions of identified features, to create a matched filter """
 
         # Identify segment indices present in map (excluding bakground feature)
         loop_features = list(set(self.canny_features.flatten()))[1:]
