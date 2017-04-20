@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
-    img_dir = 'Flourescant/Mammary/Ref_LO'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
+    img_dir = 'Histochemial/3100_zeb1/'#'Histochemial/Mammary/Ref_LO_Specific'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
@@ -84,28 +84,28 @@ if __name__ == '__main__':
         # Create coadd of all three channels
         rgb.MakeCoadd()
 
-        # Craete Canny-based mask identifying pixels that contain cells
+        # Create Canny-based edge detection to work out typical cell size
+        [ channel.CannyBlobs() for channel in rgb.iter_coadd ]
+
+        # Use canny blobs in all channels to create mask for pixels with cells
         rgb.CannyMask()
 
         # Determine if image is black-background; if not, set it so that it is
         rgb.BlackOnWhite()
 
+        # Use Laplacian-of-Gaussian blob detection to isolate regions occupied by cells
+        [ channel.LogBlobs() for channel in rgb.iter_coadd ]
+        pdb.set_trace()
         # Remove large-scale background structures from image (to create source extraction map)
         rgb.DetFilter()
-
-        """# Construct basic matched filter in each channel, using Canny features
-        [ channel.CannyCellStack() for channel in rgb.iter_coadd ]"""
 
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.canny_mask) for channel in rgb.iter_coadd ]
 
-        rgb.r.WaterWalkerDeblend()
+        rgb.b.WaterDeblend()
 
         # Use canny features to create markers for cells and background, to anchor segmentation
-        [ channel.WaterWalkerDeblend() for channel in rgb.iter_coadd ]
-
-        """# Use canny features to create markers for cells and background, to anchor segmentation
-        [ channel.WalkerDeblend() for channel in rgb.iter_coadd ]"""
+        [ channel.WaterDeblend() for channel in rgb.iter_coadd ]
 
 
 
