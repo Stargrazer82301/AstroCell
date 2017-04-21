@@ -107,8 +107,8 @@ class Image():
         clip = SigmaClip(self.map, median=True, sigma_thresh=3.0)
 
         # Use noise level to generate atificial noise to add to image
-        canny_iter = 100
-        noise = np.random.normal(0.0, 0.25*clip[0], size=(in_map.shape[0],in_map.shape[1],60))
+        canny_iter = 60
+        noise = np.random.normal(0.0, 0.25*clip[0], size=(in_map.shape[0],in_map.shape[1],canny_iter))
 
         # Add each generation of random noise to image in turn, performing Canny edge filtering on each
         canny_stack = np.zeros(noise.shape)
@@ -213,31 +213,49 @@ class Image():
 
 
 
-    def LogBlobs(self):
-        """ A method that uses Laplacian of Gaussian blob detection to identify which pixels have cells in """
+    def LogDogBlobs(self, canny_features=None):
+        """ A method that uses Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to identify which pixels have cells in """
+
+        # If canny features map provided, use this; otherwise just use features map for this channel
+        if not isinstance(canny_features,np.ndarray):
+            canny_features = self.canny_features
 
         # Use canny features in this channel to work out range of cell sizes
-        if np.nanstd(self.canny_features) == 0:
+        if np.nanstd(canny_features) == 0:
             canny_areas = np.array([])
         else:
-            canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+            canny_areas = np.unique(canny_features, return_counts=True)[1].astype(float)
         canny_diams = 2.0 * np.sqrt(canny_areas/np.pi)
         diams_clip = SigmaClip(canny_diams, median=True, sigma_thresh=3.0)
+        diams_thresh_min = 0.5 * np.min(diams_clip[2])
+        diams_thresh_max = diams_clip[1] + diams_clip[0]
 
         # Run LoG extraction
-        diams_thresh_min = np.min(diams_clip[2])
-        diams_thresh_max = diams_clip[1] + diams_clip[0]
-        log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max, num_sigma=50, threshold=0.05)
+        log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
+                                             num_sigma=25, overlap=0.95, threshold=0.01)
 
-        # Convert third column to radii
+        # Run DoG extraction
+        dog_blobs = skimage.feature.blob_dog(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
+                                             sigma_ratio=1.5, overlap=0.95, threshold=0.01)
+
+        # Convert third column of blob outputs to radii
         log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
+        dog_blobs[:,2] = dog_blobs[:,2] * np.sqrt(2.0)
 
-        # Loop over blobs, adding them to mask
-        log_mask = np.zeros(self.map.shape)
+        # Create mask
+        blob_mask = np.zeros(self.map.shape)
+
+        # Loop over LoG blobs, adding them to mask
         for i in range(0, log_blobs.shape[0]):
-            log_mask += EllipseMask(log_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
-        #astropy.io.fits.writeto('/home/chris/log_mask.fits', log_mask, clobber=True)
-        pdb.set_trace()
+            blob_mask += EllipseMask(blob_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
+
+        # Loop over DoG blobs, adding them to mask
+        for i in range(0, dog_blobs.shape[0]):
+            blob_mask += EllipseMask(blob_mask, dog_blobs[i,2], 1.0, 0.0, dog_blobs[i,0], dog_blobs[i,1])
+
+        # Record mask to object
+        self.blob_mask = blob_mask
+        #astropy.io.fits.writeto('/home/chris/blob_mask.fits', blob_mask, clobber=True)
 
 
 
