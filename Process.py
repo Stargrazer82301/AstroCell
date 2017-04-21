@@ -69,7 +69,10 @@ def WaterWrapper(Image, seg_map, iter_total):
     Image = copy.deepcopy(Image)
 
     # Decide how many markers to generate, based on number of already-identified features, and the proportion of the map they occupy
-    n_markers = 1000#n_markers = int( 1.0 * np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] )
+    n_thresh_seg = int( 2.0 * np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_canny = int( 2.0 * np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_logdog = int( 2.0 * np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_markers = np.nanmax([n_thresh_seg, n_canny, n_logdog])
 
     # Generate marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -84,17 +87,12 @@ def WaterWrapper(Image, seg_map, iter_total):
     for i in range(0, markers.shape[0]):
         marker_map[ int(markers[i,0]), int(markers[i,1]) ] = i+1
 
-    """# Remove markers that do not lie within segmented objects
-    marker_map[np.where(seg_map==0)] = 0"""
+    # Remove markers that do not lie within segmented objects
+    marker_map[np.where(seg_map==0)] = 0
 
-    # Create mask and invert map and then conduct segmentation
+    # Create mask and invert map
     mask_map = np.zeros(seg_map.shape).astype(bool)
     mask_map[np.where(seg_map>0)] = True
-
-
-    mask_map = None
-
-
     in_map = Image.detmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
 

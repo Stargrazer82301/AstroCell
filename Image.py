@@ -123,7 +123,8 @@ class Image():
                 canny_stack[:,:,i] = canny_list[i]
             del(canny_list)
         else:
-            canny_stack[:,:,i] = skimage.feature.canny(in_map+noise[:,:,i], sigma=sigma)
+            for i in range(0,noise.shape[2]):
+                canny_stack[:,:,i] = skimage.feature.canny(in_map+noise[:,:,i], sigma=sigma)
 
         # Co-add each individual Canny iteration; Canny edges found in lots of iterations are assumed to be real
         canny_iter_frac = 0.35
@@ -239,15 +240,15 @@ class Image():
         canny_diams = 2.0 * np.sqrt(canny_areas/np.pi)
         diams_clip = SigmaClip(canny_diams, median=True, sigma_thresh=3.0)
         diams_thresh_min = 0.5 * np.min(diams_clip[2])
-        diams_thresh_max = diams_clip[1] + diams_clip[0]
+        diams_thresh_max = 0.5 * (diams_clip[1] + diams_clip[0])
 
         # Run LoG extraction
         log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             num_sigma=25, overlap=0.95, threshold=0.01)
+                                             num_sigma=30, overlap=0.95, threshold=0.1)
 
         # Run DoG extraction
         dog_blobs = skimage.feature.blob_dog(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             sigma_ratio=1.5, overlap=0.95, threshold=0.01)
+                                             sigma_ratio=1.4, overlap=0.95, threshold=0.1)
 
         # Convert third column of blob outputs to radii
         log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
@@ -264,11 +265,15 @@ class Image():
         for i in range(0, dog_blobs.shape[0]):
             blob_mask += EllipseMask(blob_mask, dog_blobs[i,2], 1.0, 0.0, dog_blobs[i,0], dog_blobs[i,1])
 
+        # Use mask to create a features map
+        blob_features = scipy.ndimage.measurements.label(blob_mask)[0]
+
         # Return mask
         if self.parallel:
-            return blob_mask
+            return blob_mask, blob_features
         else:
             self.logdog_mask = blob_mask
+            self.logdog_features = blob_features
         #astropy.io.fits.writeto('/home/chris/blob_mask.fits', blob_mask, clobber=True)
 
 
@@ -293,16 +298,16 @@ class Image():
         area_thresh = np.max([1.0, area_thresh])
 
         # Perform sigma clipping, to charactarise background
-        in_map = self.detmap.copy().astype(float)
-        bg_map = in_map.copy()
-        if bg_mask!=None:
+        bg_map = self.detmap.copy().astype(float)
+        if isinstance(bg_mask,np.ndarray):
             bg_map[ np.where(bg_mask>0) ] = np.NaN
-        bg_clip = SigmaClip(bg_map, median=False, sigma_thresh=3.0)
+        bg_clip = SigmaClip(bg_map, median=False, sigma_thresh=2.0)
 
         # Background subtract map, and determine segmentation threshold
+        in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 2.0 * bg_clip[0]
+        seg_thresh = 3.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
@@ -315,8 +320,8 @@ class Image():
 
 
 
-    def WaterWalkerDeblend(self, seg_map=None):
-        """ A method that uses a Monte Carlo series of watershed or random walker segmentations to deblend segmented cell features """
+    def WaterDeblend(self, seg_map=None):
+        """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -331,19 +336,15 @@ class Image():
         thresh_areas = np.unique(self.thresh_segmap, return_counts=True)[1].astype(float)
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 500
-        method = 'water'
-        if method == 'water':
-            processes = mp.cpu_count()-1
-        elif method == 'walker':
-            processes = (mp.cpu_count()-1) // 2
+        iter_total = 1000
+        processes = mp.cpu_count()-1
 
         # Run random iterations in parallel, for speed
         waterwalk_map_list = []
         pool = mp.Pool(processes=processes)
         for i in range(0, iter_total):
-            waterwalk_map_list.append( pool.apply_async( AstroCell.Process.WaterWalkerWrapper, args=(self, seg_map, iter_total, method,) ) )
-            #waterwalk_map_list.append( AstroCell.Process.WaterWalkerWrapper(copy.deepcopy(self), seg_map, iter_total, method) )
+            waterwalk_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
+            #waterwalk_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
         pool.close()
         pool.join()
         waterwalk_map_list = [output.get() for output in waterwalk_map_list]
@@ -356,6 +357,7 @@ class Image():
 
         pdb.set_trace()
 
+        astropy.io.fits.writeto('/home/chris/map.fits', self.map, clobber=True)
         astropy.io.fits.writeto('/home/chris/det_map.fits', self.detmap, clobber=True)
         astropy.io.fits.writeto('/home/chris/thresh_seg_map.fits', self.thresh_segmap, clobber=True)
         astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)

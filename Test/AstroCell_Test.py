@@ -101,11 +101,12 @@ if __name__ == '__main__':
 
         # Use Laplacian-of-Gaussian and Difference-of_Gaussian blob detection to isolate regions occupied by cells
         if parallel:
-            logdog_blob_list = joblib.Parallel( n_jobs=mp.cpu_count()-1 )\
+            logdog_blob_list = joblib.Parallel( n_jobs=mp.cpu_count() )\
                                               ( joblib.delayed( channel.LogDogBlobs )\
                                               ( canny_features=rgb.coadd.canny_features )\
                                               for channel in rgb.iter_coadd )
-            [ setattr(rgb.iter_coadd[c],'logdog_mask',logdog_blob_list[c]) for c in range(0,len(rgb.iter_coadd)) ]
+            [ setattr(rgb.iter_coadd[c],'logdog_mask',logdog_blob_list[c][0]) for c in range(0,len(rgb.iter_coadd)) ]
+            [ setattr(rgb.iter_coadd[c],'logdog_features',logdog_blob_list[c][1]) for c in range(0,len(rgb.iter_coadd)) ]
         else:
             [ channel.LogDogBlobs(canny_features=rgb.coadd.canny_features) for channel in rgb.iter_coadd ]
 
@@ -114,11 +115,11 @@ if __name__ == '__main__':
 
         # Remove large-scale background structures from image (to create source extraction map)
         rgb.DetFilter()
-        p
-        # Use canny features to create markers for cells and background, to anchor segmentation
-        [ channel.ThreshSegment(rgb.canny_mask) for channel in rgb.iter_coadd ]
 
-        rgb.b.WaterDeblend()
+        # Use canny features to create markers for cells and background, to anchor segmentation
+        [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
+
+        rgb.r.WaterDeblend()
 
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.WaterDeblend() for channel in rgb.iter_coadd ]
@@ -126,15 +127,6 @@ if __name__ == '__main__':
 
 
         sdfdfdsvds
-
-
-
-
-
-
-
-
-
 
 
 

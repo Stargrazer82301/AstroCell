@@ -184,7 +184,7 @@ class RGB():
         # Create cube of LoG-DoG blobs from each channel (including coadd)
         logdog_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
         for i in range(0, len(self.iter_coadd)):
-            logdog_cube[:,:,i] = self.iter_coadd[i].logdog_mask
+            logdog_cube[:,:,i] = self.iter_coadd[i].logdog_features
 
         # Coadd the Canny feature maps and LoG-DoG blob from each channel
         canny_coadd = np.sum(self.canny_cube, axis=2)
