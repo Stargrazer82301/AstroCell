@@ -254,7 +254,7 @@ class Image():
             blob_mask += EllipseMask(blob_mask, dog_blobs[i,2], 1.0, 0.0, dog_blobs[i,0], dog_blobs[i,1])
 
         # Record mask to object
-        self.blob_mask = blob_mask
+        self.logdog_mask = blob_mask
         #astropy.io.fits.writeto('/home/chris/blob_mask.fits', blob_mask, clobber=True)
 
 

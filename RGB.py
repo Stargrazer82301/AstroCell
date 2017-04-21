@@ -101,12 +101,11 @@ class RGB():
 
 
     def CannyMask(self):
-        """ A method that creates a background mask using the Canny features from all three channels """
+        """ A method that combines the Canny blob detectionn in each channel to create a mask tracing cell-filled regions """
 
         # Do a rough Canny-based cell extraction on each channel, including the coadd
         self.canny_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
         for i in range(0, len(self.iter_coadd)):
-            self.iter_coadd[i].CannyCells()
             self.canny_cube[:,:,i] = self.iter_coadd[i].canny_features
 
         # Coadd the Canny feature maps from each channel
@@ -158,6 +157,37 @@ class RGB():
             for channel in self.iter:
                 channel.map = -1.0 * ( channel.map - 255.0 )
             self.coadd.map = -1.0 * ( self.coadd.map - 255.0 )
+
+
+
+    def BlobMask(self):
+        """ A method that combines the Canny, LoG, and DoG blob detectionn in each channel to create a mask of cell-filled regions """
+
+        # Create cube of Canny features from each channel (including coadd)
+        self.canny_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
+        for i in range(0, len(self.iter_coadd)):
+            self.canny_cube[:,:,i] = self.iter_coadd[i].canny_features
+
+            # Ensure numbering in each slice of Canny cube unique
+            if i > 0:
+                self.canny_cube[:,:,i] += np.nanmin(self.canny_cube[:,:,i]-1)
+
+        # Create cube of LoG-DoG blobs from each channel (including coadd)
+        logdog_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
+        for i in range(0, len(self.iter_coadd)):
+            logdog_cube[:,:,i] = self.iter_coadd[i].logdog_mask
+
+        # Coadd the Canny feature maps and LoG-DoG blob from each channel
+        canny_coadd = np.sum(self.canny_cube, axis=2)
+        logdog_coadd = np.sum(self.logdog_cube, axis=2)
+        blob_coadd = canny_coadd + logdog_coadd
+        #astropy.io.fits.writeto('/home/chris/blob_coadd.fits', blob_coadd, clobber=True)
+
+        # Create Canny mask, and record
+        blob_where = np.where(blob_coadd>0)
+        blob_mask = blob_coadd.copy()
+        blob_mask[blob_where] = 1
+        self.blob_mask = blob_mask
 
 
 
