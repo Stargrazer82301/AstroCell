@@ -76,8 +76,20 @@ class RGB():
         self.temp = temp
 
         # Record temp dir location attribute to Image objects
-        for i in range(0, len(self.iter)):
-            self.iter[i].temp = temp
+        for channel in self.iter:
+            channel.temp = temp
+
+
+
+    def RecParallel(self, parallel):
+        """ Brief method that records whether utilising multiprocessing to the RGB object and it's constituent Image objects """
+
+        # Record temp dir location attribute to self
+        self.parallel = parallel
+
+        # Record temp dir location attribute to Image objects
+        for channel in self.iter:
+            channel.parallel = parallel
 
 
 
@@ -94,9 +106,10 @@ class RGB():
         # Make tuple of strings giving name of each channel (including the coadd), to use for iteration
         self.channels = ('b','g','r','coadd')
 
-        # Record name of coadd channel, and location of temp dir
+        # Record name of coadd channel, location of temp dir, and parallelisation
         self.coadd.name = 'coadd'
         self.coadd.temp = self.temp
+        self.coadd.parallel = parallel
 
 
 

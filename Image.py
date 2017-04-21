@@ -1,11 +1,13 @@
 # Import smorgasbord
 import pdb
+import copy
+import gc
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
+import scipy.ndimage.measurements
 import matplotlib.pylab as plt
 import astropy.logger
-import copy
 astropy.log.setLevel('ERROR')
 import astropy.convolution
 import astropy.stats
@@ -14,8 +16,8 @@ import astropy.visualization.mpl_normalize
 import astropy.io.fits
 import photutils
 import skimage.feature
-import scipy.ndimage.measurements
 import skimage.segmentation
+import joblib
 from ChrisFuncs import SigmaClip
 from ChrisFuncs.Photom import EllipseMask
 import AstroCell.Process
@@ -107,12 +109,20 @@ class Image():
         clip = SigmaClip(self.map, median=True, sigma_thresh=3.0)
 
         # Use noise level to generate atificial noise to add to image
-        canny_iter = 60
+        canny_iter = 100
         noise = np.random.normal(0.0, 0.25*clip[0], size=(in_map.shape[0],in_map.shape[1],canny_iter))
 
-        # Add each generation of random noise to image in turn, performing Canny edge filtering on each
+        # Add each generation of random noise to image in turn, performing Canny edge filtering on each (in parallel with joblist)
         canny_stack = np.zeros(noise.shape)
-        for i in range(0,noise.shape[2]):
+        if self.parallel:
+            canny_list = joblib.Parallel( n_jobs=mp.cpu_count()-1 )\
+                                        ( joblib.delayed(skimage.feature.canny)\
+                                        (in_map+noise[:,:,i], sigma=sigma) \
+                                        for i in range(0,noise.shape[2]) )
+            for i in range(0,noise.shape[2]):
+                canny_stack[:,:,i] = canny_list[i]
+            del(canny_list)
+        else:
             canny_stack[:,:,i] = skimage.feature.canny(in_map+noise[:,:,i], sigma=sigma)
 
         # Co-add each individual Canny iteration; Canny edges found in lots of iterations are assumed to be real
@@ -157,6 +167,7 @@ class Image():
                 canny_cells = np.zeros(canny_cells.shape).astype(int)
 
         # Record final image
+        gc.collect()
         self.canny_features = canny_cells
 
 
@@ -253,8 +264,11 @@ class Image():
         for i in range(0, dog_blobs.shape[0]):
             blob_mask += EllipseMask(blob_mask, dog_blobs[i,2], 1.0, 0.0, dog_blobs[i,0], dog_blobs[i,1])
 
-        # Record mask to object
-        self.logdog_mask = blob_mask
+        # Return mask
+        if self.parallel:
+            return blob_mask
+        else:
+            self.logdog_mask = blob_mask
         #astropy.io.fits.writeto('/home/chris/blob_mask.fits', blob_mask, clobber=True)
 
 

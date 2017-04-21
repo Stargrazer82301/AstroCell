@@ -9,6 +9,7 @@ import inspect
 import time
 import warnings
 warnings.filterwarnings('ignore')
+import multiprocessing as mp
 import numpy as np
 import scipy.stats
 import scipy.ndimage
@@ -20,10 +21,9 @@ import astropy.stats
 import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
-import photutils
 import skimage.feature
 import skimage.restoration
-import PIL.Image
+import joblib
 import AstroCell
 import AstroCell.RGB
 import AstroCell.Image
@@ -52,6 +52,9 @@ importlib.reload(AstroCell.IO)
 # Main task
 if __name__ == '__main__':
 
+    # Declare whether to operate in parallel (where possible)
+    parallel = True
+
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     img_dir = 'Histochemial/3100_zeb1/'#'Histochemial/Mammary/Ref_LO_Specific'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
@@ -75,6 +78,9 @@ if __name__ == '__main__':
         # Read in raw image, constructing an AstroCell RGB object
         rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
 
+        # Record if operating in parallel
+        rgb.RecParallel(parallel)
+
         # Pass TempDir object to RGB and Image objects
         rgb.TempDir(temp)
 
@@ -85,20 +91,30 @@ if __name__ == '__main__':
         rgb.MakeCoadd()
 
         # Create Canny-based edge detection to work out typical cell size
-        [ channel.CannyBlobs() for channel in rgb.iter_coadd ]
+        [ channel.CannyBlobs(sigma=2.0) for channel in rgb.iter_coadd ]
 
-        # Use canny blobs in all channels to create mask for pixels with cells
+        # Use Canny features in all channels to preliminarily identify regions that hold cells
         rgb.CannyMask()
 
         # Determine if image is black-background; if not, set it so that it is
         rgb.BlackOnWhite()
 
-        # Use Laplacian-of-Gaussian blob detection to isolate regions occupied by cells
-        [ channel.LogBlobs() for channel in rgb.iter_coadd ]
-        pdb.set_trace()
+        # Use Laplacian-of-Gaussian and Difference-of_Gaussian blob detection to isolate regions occupied by cells
+        if parallel:
+            logdog_blob_list = joblib.Parallel( n_jobs=mp.cpu_count()-1 )\
+                                              ( joblib.delayed( channel.LogDogBlobs )\
+                                              ( canny_features=rgb.coadd.canny_features )\
+                                              for channel in rgb.iter_coadd )
+            [ setattr(rgb.iter_coadd[c],'logdog_mask',logdog_blob_list[c]) for c in range(0,len(rgb.iter_coadd)) ]
+        else:
+            [ channel.LogDogBlobs(canny_features=rgb.coadd.canny_features) for channel in rgb.iter_coadd ]
+
+        # Use Canny, LoG, and DoG blobs in all channels to create an improved mask of pixels that represent cells
+        rgb.BlobMask()
+
         # Remove large-scale background structures from image (to create source extraction map)
         rgb.DetFilter()
-
+        p
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.canny_mask) for channel in rgb.iter_coadd ]
 
