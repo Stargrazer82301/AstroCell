@@ -109,7 +109,7 @@ class RGB():
         # Record name of coadd channel, location of temp dir, and parallelisation
         self.coadd.name = 'coadd'
         self.coadd.temp = self.temp
-        self.coadd.parallel = parallel
+        self.coadd.parallel = self.parallel
 
 
 
@@ -181,10 +181,6 @@ class RGB():
         for i in range(0, len(self.iter_coadd)):
             self.canny_cube[:,:,i] = self.iter_coadd[i].canny_features
 
-            # Ensure numbering in each slice of Canny cube unique
-            if i > 0:
-                self.canny_cube[:,:,i] += np.nanmin(self.canny_cube[:,:,i]-1)
-
         # Create cube of LoG-DoG blobs from each channel (including coadd)
         logdog_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
         for i in range(0, len(self.iter_coadd)):
@@ -192,14 +188,15 @@ class RGB():
 
         # Coadd the Canny feature maps and LoG-DoG blob from each channel
         canny_coadd = np.sum(self.canny_cube, axis=2)
-        logdog_coadd = np.sum(self.logdog_cube, axis=2)
+        canny_coadd[ np.where( canny_coadd == np.nanmin(canny_coadd) ) ] = 0
+        logdog_coadd = np.sum(logdog_cube, axis=2)
         blob_coadd = canny_coadd + logdog_coadd
         #astropy.io.fits.writeto('/home/chris/blob_coadd.fits', blob_coadd, clobber=True)
 
         # Create Canny mask, and record
-        blob_where = np.where(blob_coadd>0)
         blob_mask = blob_coadd.copy()
-        blob_mask[blob_where] = 1
+        blob_mask[np.where(blob_coadd>0)] = 1
+        blob_mask[np.where(blob_coadd<=0)] = 0
         self.blob_mask = blob_mask
 
 
@@ -207,23 +204,22 @@ class RGB():
     def DetFilter(self):
         """ Method that removes smooth all large-scale background structure from map, to create an optimal detection map """
 
-        # Use canny features map to get distribution of feature sizes (assuming circuar features)
-        canny_diams = []
-        canny_coadd = np.sum(self.canny_cube, axis=2)
-        canny_areas = np.unique(canny_coadd, return_counts=True)[1].astype(float)
+        # Use Canny features map to get distribution of feature sizes (assuming circuar features)
+        canny_areas = np.unique(self.coadd.canny_features, return_counts=True)[1].astype(float)
         canny_diams = 2.0 * np.sqrt( canny_areas / np.pi)
+        #astropy.io.fits.writeto('/home/chris/canny_coadd.fits', canny_coadd, clobber=True)
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
         canny_diams_clip = SigmaClip(canny_diams, median=True)
-        kernel_size = 2.0 * np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
+        kernel_size = np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
-        # Iterate over each channel, applying a minimum filter to each
+        # Iterate over each channel, creating and removing background model for each
         for channel in self.iter_coadd:
 
             # Create background map by excluding Canny cells from image
             canny_bg_map = channel.map.copy().astype(float)
-            canny_bg_map[ np.where(canny_coadd>0) ] = np.NaN
+            canny_bg_map[ np.where(self.blob_mask>0) ] = np.NaN
             canny_bg_fill = SigmaClip(canny_bg_map, median=True, sigma_thresh=3.0)[1]
 
             # Also exclude aberantly bright pixels from background map
