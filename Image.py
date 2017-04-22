@@ -28,8 +28,7 @@ plt.ioff()
 
 
 class Image():
-    """ Class that stores an image array, and provides various methods to process that image in some way; the output of these methods can be a new
-    attribute of the Image object in question, each of which will *itslf* be a new Image object, with the same processing functionality """
+    """ Class that stores an image array, and provides various methods to process that image in some way """
 
 
 
@@ -38,6 +37,14 @@ class Image():
 
         # Store the input image
         self.map = in_image.astype(float)
+
+
+
+    def Raw(self):
+        """ Short method that makes an untouched copy of the Image, nested under itself """
+
+        # Initialise raw Image
+        self.raw = self.map.copy()
 
 
 
@@ -334,7 +341,7 @@ class Image():
             return
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 1000
+        iter_total = 500
         processes = mp.cpu_count()-1
 
         # Run random iterations in parallel, for speed
@@ -355,6 +362,8 @@ class Image():
             border_map += skimage.segmentation.find_boundaries(water_map_list[i], connectivity=2)
 
         # Record watershed output
+        del(water_map_list)
+        gc.collect()
         self.water_border = border_map
         #astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)
 

@@ -1,8 +1,8 @@
 # Import smorgasbord
 import os
 import pdb
-import pickle
-import multiproessing as mp
+import dill
+import multiprocessing as mp
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -40,14 +40,6 @@ class RGB():
         bitmap_image = PIL.Image.open(in_path)
         rgb_image = np.array(bitmap_image)
 
-        # Store raw, unaltered versionf of each channel as AstroCell.Image objects
-        class Raw(object):
-            pass
-        self.raw = Raw()
-        self.raw.r = AstroCell.Image.Image(rgb_image[:,:,0].copy())
-        self.raw.g = AstroCell.Image.Image(rgb_image[:,:,1].copy())
-        self.raw.b = AstroCell.Image.Image(rgb_image[:,:,2].copy())
-
         # Store the full rgb cube, as a float
         self.cube = rgb_image.astype(float)
 
@@ -72,11 +64,15 @@ class RGB():
 
 
 
-    def Pickle(self, pickle_path):
-        """ A method that pickles an RGB object, so that it can re-used later, to save reprocessing (especially during testing) """
+    def Dill(self, dill_dir):
+        """ A method that dill pickles an RGB object, so that it can re-used later, to save reprocessing (especially during testing) """
+
+        # Construct dill pickle's file name
+        dill_file = '.'.join(self.file_name.split('.')[:-1])+'.dj'
+        dill_path = os.path.join(dill_dir, dill_file)
 
         # Conduct pickling
-        pickle.dump( self, open( pickle_path+'.pj', 'wb' ) )
+        dill.dump( self, open( dill_path, 'wb' ) )
 
 
 

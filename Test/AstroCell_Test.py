@@ -7,6 +7,7 @@ import shutil
 import imghdr
 import inspect
 import time
+import pickle
 import warnings
 warnings.filterwarnings('ignore')
 import multiprocessing as mp
@@ -55,6 +56,7 @@ if __name__ == '__main__':
 
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
+    dill_dir = '/home/chris/Data
     img_dir = 'Histochemial/Mammary/Ref_LO_Specific'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
@@ -81,6 +83,9 @@ if __name__ == '__main__':
 
         # Pass TempDir object to RGB and Image objects
         rgb.TempDir(temp)
+
+        # Preserve raw, un-modified copies of data for later reference
+        [ channel.Raw() for channel in rgb.iter ]
 
         # Clean edges of images
         [ channel.CleanEdges() for channel in rgb.iter ]
@@ -113,7 +118,9 @@ if __name__ == '__main__':
         [ channel.WaterDeblend() for channel in rgb.iter_coadd ]
 
         pdb.set_trace()
-        rgb.Pickle(test_dir)
+        rgb.Dill(test_dir)
+
+        rgb = pickle.load( open( '', 'rb' ) )
 
 
 
