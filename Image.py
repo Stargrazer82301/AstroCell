@@ -267,6 +267,7 @@ class Image():
 
         # Use mask to create a features map
         blob_features = scipy.ndimage.measurements.label(blob_mask)[0]
+        blob_features = AstroCell.Process.LabelShuffle(blob_features)
 
         # Return mask
         if self.parallel:
@@ -307,7 +308,7 @@ class Image():
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 3.0 * bg_clip[0]
+        seg_thresh = 2.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
@@ -332,9 +333,6 @@ class Image():
             self.thresh_segmap = seg_map
             return
 
-        # Find areas of thresholding segmentation features
-        thresh_areas = np.unique(self.thresh_segmap, return_counts=True)[1].astype(float)
-
         # Prepare parameters for Monte Carlo segmenations
         iter_total = 1000
         processes = mp.cpu_count()-1
@@ -343,8 +341,8 @@ class Image():
         waterwalk_map_list = []
         pool = mp.Pool(processes=processes)
         for i in range(0, iter_total):
-            waterwalk_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
-            #waterwalk_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
+            #waterwalk_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
+            waterwalk_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
         pool.close()
         pool.join()
         waterwalk_map_list = [output.get() for output in waterwalk_map_list]
@@ -354,13 +352,9 @@ class Image():
         for i in range(0, len(waterwalk_map_list)):
             border_map += skimage.segmentation.find_boundaries(waterwalk_map_list[i], connectivity=2)
 
-
-        pdb.set_trace()
-
-        astropy.io.fits.writeto('/home/chris/map.fits', self.map, clobber=True)
-        astropy.io.fits.writeto('/home/chris/det_map.fits', self.detmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/thresh_seg_map.fits', self.thresh_segmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)
+        # Record watershed output
+        self.water_border = border_map
+        #astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)
 
 
 

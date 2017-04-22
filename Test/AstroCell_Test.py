@@ -22,8 +22,6 @@ import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
 import skimage.feature
-import skimage.restoration
-import joblib
 import AstroCell
 import AstroCell.RGB
 import AstroCell.Image
@@ -57,7 +55,7 @@ if __name__ == '__main__':
 
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
-    img_dir = 'Histochemial/3100_zeb1/'#'Histochemial/Mammary/Ref_LO_Specific'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
+    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
@@ -99,16 +97,8 @@ if __name__ == '__main__':
         # Determine if image is black-background; if not, set it so that it is
         rgb.BlackOnWhite()
 
-        # Use Laplacian-of-Gaussian and Difference-of_Gaussian blob detection to isolate regions occupied by cells
-        if parallel:
-            logdog_blob_list = joblib.Parallel( n_jobs=mp.cpu_count() )\
-                                              ( joblib.delayed( channel.LogDogBlobs )\
-                                              ( canny_features=rgb.coadd.canny_features )\
-                                              for channel in rgb.iter_coadd )
-            [ setattr(rgb.iter_coadd[c],'logdog_mask',logdog_blob_list[c][0]) for c in range(0,len(rgb.iter_coadd)) ]
-            [ setattr(rgb.iter_coadd[c],'logdog_features',logdog_blob_list[c][1]) for c in range(0,len(rgb.iter_coadd)) ]
-        else:
-            [ channel.LogDogBlobs(canny_features=rgb.coadd.canny_features) for channel in rgb.iter_coadd ]
+        # Use Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to isolate regions occupied by cells
+        rgb.LogDogBlobsWrapper()
 
         # Use Canny, LoG, and DoG blobs in all channels to create an improved mask of pixels that represent cells
         rgb.BlobMask()
@@ -119,15 +109,15 @@ if __name__ == '__main__':
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
 
-        rgb.r.WaterDeblend()
-
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.WaterDeblend() for channel in rgb.iter_coadd ]
+
+        pdb.set_trace()
+        rgb.Pickle(test_dir)
 
 
 
         sdfdfdsvds
-
 
 
 

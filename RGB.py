@@ -1,6 +1,8 @@
 # Import smorgasbord
 import os
 import pdb
+import pickle
+import multiproessing as mp
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
@@ -12,6 +14,7 @@ import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
 import PIL.Image
+import joblib
 import AstroCell.Process
 import AstroCell.Image
 from ChrisFuncs import SigmaClip
@@ -66,6 +69,14 @@ class RGB():
         # Record each channel's name as an attribute
         for i in range(0, len(self.iter)):
             self.iter[i].name =  self.channels[i]
+
+
+
+    def Pickle(self, pickle_path):
+        """ A method that pickles an RGB object, so that it can re-used later, to save reprocessing (especially during testing) """
+
+        # Conduct pickling
+        pickle.dump( self, open( pickle_path+'.pj', 'wb' ) )
 
 
 
@@ -170,6 +181,24 @@ class RGB():
             for channel in self.iter:
                 channel.map = -1.0 * ( channel.map - 255.0 )
             self.coadd.map = -1.0 * ( self.coadd.map - 255.0 )
+
+
+
+    def LogDogBlobsWrapper(self):
+        """ Wrapper around the optionally-parallel LoG-DoG blob finding Image method """
+
+        # If parallel operation requested, process channels simultaneously using joblib
+        if self.parallel:
+            logdog_blob_list = joblib.Parallel( n_jobs=mp.cpu_count()-1 )\
+                                              ( joblib.delayed( channel.LogDogBlobs )\
+                                              ( canny_features=self.coadd.canny_features )\
+                                              for channel in self.iter_coadd )
+            [ setattr(self.iter_coadd[c],'logdog_mask',logdog_blob_list[c][0]) for c in range(0,len(self.iter_coadd)) ]
+            [ setattr(self.iter_coadd[c],'logdog_features',logdog_blob_list[c][1]) for c in range(0,len(self.iter_coadd)) ]
+
+        # Else if not operating in parallel, do things the straightforward way
+        else:
+            [ channel.LogDogBlobs(canny_features=self.coadd.canny_features) for channel in self.iter_coadd ]
 
 
 
