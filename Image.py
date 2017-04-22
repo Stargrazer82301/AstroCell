@@ -338,19 +338,21 @@ class Image():
         processes = mp.cpu_count()-1
 
         # Run random iterations in parallel, for speed
-        waterwalk_map_list = []
+        water_map_list = []
         pool = mp.Pool(processes=processes)
         for i in range(0, iter_total):
-            #waterwalk_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
-            waterwalk_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
+            if self.parallel:
+                water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
+            else:
+                water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
         pool.close()
         pool.join()
-        waterwalk_map_list = [output.get() for output in waterwalk_map_list]
+        water_map_list = [output.get() for output in water_map_list]
 
         # Convert walker maps to boundry maps
         border_map = np.zeros(seg_map.shape)
-        for i in range(0, len(waterwalk_map_list)):
-            border_map += skimage.segmentation.find_boundaries(waterwalk_map_list[i], connectivity=2)
+        for i in range(0, len(water_map_list)):
+            border_map += skimage.segmentation.find_boundaries(water_map_list[i], connectivity=2)
 
         # Record watershed output
         self.water_border = border_map
