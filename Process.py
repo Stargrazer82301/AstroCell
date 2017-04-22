@@ -69,10 +69,10 @@ def WaterWrapper(Image, seg_map, iter_total):
     Image = copy.deepcopy(Image)
 
     # Decide how many markers to generate, based on number of already-identified features, and the proportion of the map they occupy
-    n_thresh_seg = int( 1.0 * np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_canny = int( 1.0 * np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_logdog = int( 1.0 * np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = np.nanmax([n_thresh_seg, n_canny, n_logdog])
+    n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_markers = 2.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog])
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -107,7 +107,7 @@ def WaterWrapper(Image, seg_map, iter_total):
 
     # Conduct segmentation
     out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=1,
-                                         offset=None, mask=mask_map, compactness=0.01, watershed_line=False)
+                                         offset=None, mask=mask_map, compactness=0, watershed_line=False)
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)

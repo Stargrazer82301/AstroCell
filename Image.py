@@ -251,11 +251,11 @@ class Image():
 
         # Run LoG extraction
         log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             num_sigma=30, overlap=0.95, threshold=0.1)
+                                             num_sigma=25, overlap=0.95, threshold=0.1)
 
         # Run DoG extraction
         dog_blobs = skimage.feature.blob_dog(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             sigma_ratio=1.4, overlap=0.95, threshold=0.1)
+                                             sigma_ratio=1.3, overlap=0.95, threshold=0.1)
 
         # Convert third column of blob outputs to radii
         log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
