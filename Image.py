@@ -344,10 +344,6 @@ class Image():
         iter_total = 500
         processes = mp.cpu_count()-1
 
-        # Filter detection map with a Mexican-hat kernel
-        kernel = astropy.convolution.kernels.MexicanHat2DKernel(2.0)
-        self.mexmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')
-
         # Run random iterations in parallel, for speed
         water_map_list = []
         pool = mp.Pool(processes=processes)
