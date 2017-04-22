@@ -72,7 +72,7 @@ def WaterWrapper(Image, seg_map, iter_total):
     n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = 2.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog])
+    n_markers = int( 3.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -102,12 +102,12 @@ def WaterWrapper(Image, seg_map, iter_total):
     # Create mask and invert map
     mask_map = np.zeros(seg_map.shape).astype(bool)
     mask_map[np.where(seg_map>0)] = True
-    in_map = Image.detmap.copy()
+    in_map = Image.mexmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
 
     # Conduct segmentation
     out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=1,
-                                         offset=None, mask=mask_map, compactness=0, watershed_line=False)
+                                         offset=None, mask=mask_map, compactness=0.2, watershed_line=False)
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
