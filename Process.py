@@ -121,5 +121,70 @@ def WaterWrapper(Image, seg_map, iter_total):
 
 def SegmentCombine():
     """ A function that combines segmentation maps from multiple channels to create a master segmentation map """
+def WalkerWrapper(Image, seg_map, iter_total):
+    """ Wrapper around random walker segmentation function, for ease of parallelisation """
+
+    # Make copy of input Image object to work with
+    Image = copy.deepcopy(Image)
+
+    # Decide how many markers to generate, based on number of already-identified features, and the proportion of the map they occupy
+    n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
+    n_markers = int( 2.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
+
+    # Generate totally random marker coordinates
+    markers = np.random.random(size=(n_markers,2))
+    markers[:,0] *= Image.map.shape[0]
+    markers[:,1] *= Image.map.shape[1]
+
+    # Prune markers located too close to each other
+    markers = ProximatePrune(markers, 0.5*np.sqrt(Image.thresh_area/np.pi))
+
+    # Loop over each threshold segment, ensuring that each recieves at least one marker
+    thresh_seg_labels = np.unique(seg_map)
+    for i in range(1,len(thresh_seg_labels)):
+        label = thresh_seg_labels[i]
+        label_where = np.where(seg_map==label)
+        label_marker = np.random.randint(label_where[0].shape[0])
+        markers[i,0] = label_where[0][label_marker]
+        markers[i,1] = label_where[1][label_marker]
+
+    # Loop over each Canny Feature segment, ensuring that each recieves at least one marker
+    canny_labels = np.unique(Image.canny_features)
+    for i in range(0,len(canny_labels)):
+        label = canny_labels[i]
+        label_where = np.where(Image.canny_features==label)
+        label_marker = np.random.randint(label_where[0].shape[0])
+        markers[i+len(thresh_seg_labels),0] = label_where[0][label_marker]
+        markers[i+len(thresh_seg_labels),1] = label_where[1][label_marker]
+
+    # Convert marker points into a marker array
+    marker_map = np.zeros(Image.map.shape, dtype=np.int)
+    for i in range(0, markers.shape[0]):
+        marker_map[ int(markers[i,0]), int(markers[i,1]) ] = i+1
+
+    # Remove markers that do not lie within segmented objects
+    marker_map[np.where(seg_map==0)] = 0
+
+    # Create mask and invert map
+    mask_map = np.zeros(seg_map.shape).astype(bool)
+    mask_map[np.where(seg_map>0)] = True
+    in_map = Image.detmap.copy()
+    in_map = (-1.0 * in_map) + np.nanmax(in_map)
+    in_map[np.where(mask_map==False)] = 999
+
+    # Conduct segmentation
+    out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=15000, mode='cg_mg', tol=0.001,
+                                                      copy=True, multichannel=False, return_full_prob=False, spacing=None)
+
+    # Estimate completion time
+    iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
+    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+'; estimated completion time '+str(time_est)+'.')
+
+    # Clean up, and return output segmentation map
+    gc.collect
+    return out_map
+
 
 

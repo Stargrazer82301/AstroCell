@@ -266,3 +266,27 @@ class RGB():
 
 
 
+    def OverviewImage(self):
+
+        """
+        rand_cmap = photutils.utils.random_cmap(np.nanmax(deblend_map.array) + 1, random_state=12345)
+        norm = astropy.visualization.mpl_normalize.ImageNormalize( stretch=astropy.visualization.AsinhStretch() )
+        map_aspect = float(rgb.coadd.map.shape[1]) / float(rgb.coadd.map.shape[0])
+        fig_x_panes = 3
+        fig_y_panes = 1
+        fig_aspect = ( fig_x_panes * map_aspect ) / fig_y_panes
+        fig_x_dim = 10.0 * fig_aspect
+        fig_y_dim = 10.0
+        fig, axes = plt.subplots(fig_y_panes, fig_x_panes, figsize=(fig_x_dim, fig_y_dim))
+        axes[0].imshow(in_map, origin='lower', cmap='inferno', vmin=np.percentile(in_map,5), vmax=np.percentile(in_map, 95))
+        axes[1].imshow(seg_map, origin='lower', cmap=rand_cmap)
+        axes[2].imshow(deblend_map.array, origin='lower', cmap=rand_cmap)
+        [ ax.set_xticklabels([]) for ax in axes ]
+        [ ax.set_yticklabels([]) for ax in axes ]
+        fig.tight_layout()
+        fig.savefig( os.path.join( out_dir, in_image.replace('.bmp','_phoutils_seg.png') ), dpi=400.0 )
+        """
+
+class Raw(object):
+    pass
+
