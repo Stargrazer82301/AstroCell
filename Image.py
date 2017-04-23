@@ -341,8 +341,12 @@ class Image():
             return
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 500
+        iter_total = 1000
         processes = mp.cpu_count()-1
+
+        # Filter detection map with a Mexican-hat kernel
+        kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
+        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')
 
         # Run random iterations in parallel, for speed
         water_map_list = []
@@ -365,6 +369,51 @@ class Image():
         del(water_map_list)
         gc.collect()
         self.water_border = border_map
+        #astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)
+
+
+
+    def WalkerDeblend(self, seg_map=None):
+        """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
+
+        # If no segment map specified, use map from thesholding segmentation
+        if seg_map==None:
+            seg_map = self.thresh_segmap
+
+         # If segmentation map contains no segments, return null results
+        if np.max(seg_map) == 0:
+            self.thresh_segmap = seg_map
+            return
+
+        # Prepare parameters for Monte Carlo segmenations
+        iter_total = 250
+        processes = int(0.5*mp.cpu_count())
+
+        """# Filter detection map with a Mexican-hat kernel
+        kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
+        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')"""
+
+        # Run random iterations in parallel, for speed
+        walker_map_list = []
+        pool = mp.Pool(processes=processes)
+        for i in range(0, iter_total):
+            if self.parallel:
+                walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total,) ) )
+            else:
+                walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total) )
+        pool.close()
+        pool.join()
+        walker_map_list = [output.get() for output in walker_map_list]
+
+        # Convert walker maps to boundry maps
+        border_map = np.zeros(seg_map.shape)
+        for i in range(0, len(walker_map_list)):
+            border_map += skimage.segmentation.find_boundaries(walker_map_list[i], connectivity=2)
+
+        # Record watershed output
+        del(walker_map_list)
+        gc.collect()
+        self.walker_border = border_map
         #astropy.io.fits.writeto('/home/chris/border_map.fits', border_map, clobber=True)
 
 

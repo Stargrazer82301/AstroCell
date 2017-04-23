@@ -73,9 +73,10 @@ if __name__ == '__main__':
     in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
     for in_image in np.random.permutation(in_images):
 
+        # Load in a pre-processed dill file (for testing, to skip reprocessing)
+        rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/2198 r2.dj', 'rb' ) )
 
-
-        # Read in raw image, constructing an AstroCell RGB object
+        """# Read in raw image, constructing an AstroCell RGB object
         rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
 
         # Record if operating in parallel
@@ -114,22 +115,30 @@ if __name__ == '__main__':
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
 
-        # Use canny features to create markers for cells and background, to anchor segmentation
-        [ channel.WaterDeblend() for channel in rgb.iter_coadd ]
+        # Use Monte-Carlo watershed segmentation to deblend cells
+        [ channel.WaterDeblend() for channel in rgb.iter_coadd ]"""
 
+        rgb.b.WaterDeblend()
+
+        """# Use Monte-Carlo random walker segmentation to deblend cells
+        [ channel.WalkerDeblend() for channel in rgb.iter_coadd ]"""
+
+        # Save processed RGB object, for later testing use
         rgb.Dill(dill_dir)
         pdb.set_trace()
 
-        rgb = dill.load( open( '', 'rb' ) )
+
 
 
         astropy.io.fits.writeto('/home/chris/det_map.fits', rgb.b.detmap, clobber=True)
         astropy.io.fits.writeto('/home/chris/thresh_seg_map.fits', rgb.b.thresh_segmap, clobber=True)
         astropy.io.fits.writeto('/home/chris/water_border_map.fits', rgb.b.water_border, clobber=True)
+        astropy.io.fits.writeto('/home/chris/walker_border_map.fits', rgb.b.walker_border, clobber=True)
 
 
 
         sdfdfdsvds
+        rgb = dill.load( open( '', 'rb' ) )
 
 
 
