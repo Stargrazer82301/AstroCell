@@ -13,6 +13,7 @@ import astropy.stats
 import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
+import photutils
 import skimage.feature
 import PIL.Image
 import joblib
@@ -290,7 +291,7 @@ class RGB():
             # Add full border map to stack
             water_border_stack += water_border_erode.copy()
 
-        # Perform Hysteresis thresholding on stacked border map
+        """# Perform Hysteresis thresholding on stacked border map
         hyster_border = AstroCell.Process.HysterThresh(water_border_stack, (0.15*self.water_iter), (0.2*self.water_iter))
 
         # Use hysteresis borders to deblend watershed map
@@ -318,7 +319,33 @@ class RGB():
         for i in range(0, int(hyster_seg_map.max())):
             if np.where(hyster_seg_map==i)[0].shape[0] > 0:
                 if np.where(hyster_seg_map_open==i)[0].shape[0] == 0:
-                    hyster_seg_map_open[ np.where(hyster_seg_map==i) ] = i
+                    hyster_seg_map_open[ np.where(hyster_seg_map==i) ] = i"""
+
+
+        # Invert watershed stack in preparation for deblending
+        water_border_invert = water_border_stack.copy()
+        water_border_invert[ np.where(water_border_invert==0) ] = np.NaN
+        water_border_invert = (-1.0 * water_border_invert) + np.nanmax(water_border_invert)
+        water_border_invert -= np.nanmin(water_border_invert)
+        water_border_invert[ np.where(np.isnan(water_border_invert)) ] = 0.0
+
+        # Create binary map of combined segmentation
+        thresh_seg_stack = np.zeros(water_border_stack.shape)
+        for channel in self.iter_coadd:
+            thresh_seg_stack += channel.thresh_segmap
+        thresh_seg_stack[ np.where(thresh_seg_stack>0) ] = 1
+        thresh_seg_stack = scipy.ndimage.binary_closing(thresh_seg_stack, scipy.ndimage.generate_binary_structure(2,1))
+        thresh_seg_stack = skimage.measure.label(thresh_seg_stack, connectivity=1)
+
+        # Create binary version of watershed stack
+        water_border_seg = water_border_stack.copy().astype(int)
+        water_border_seg[ np.where(water_border_stack>0) ] = 1
+        water_border_seg = skimage.measure.label(water_border_seg, connectivity=1)
+
+        pdb.set_trace()
+        # Deblend using photutils deblending function
+        phot_seg = photutils.segmentation.detect_sources(thresh_seg_stack, 0.1, 5, filter_kernel=None, connectivity=4).data
+        phot_seg = photutils.deblend_sources(water_border_invert, phot_seg, npixels=5, nlevels=64, contrast=0.001, mode='linear', connectivity=4, relabel=True)
         #astropy.io.fits.writeto('/home/chris/hyster_seg_map_open.fits', hyster_seg_map_open.astype(float), clobber=True)
 
 
