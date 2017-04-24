@@ -131,8 +131,6 @@ def WaterWrapper(Image, seg_map, iter_total):
 
 
 
-def SegmentCombine():
-    """ A function that combines segmentation maps from multiple channels to create a master segmentation map """
 def WalkerWrapper(Image, seg_map, iter_total):
     """ Wrapper around random walker segmentation function, for ease of parallelisation """
 
@@ -197,6 +195,28 @@ def WalkerWrapper(Image, seg_map, iter_total):
     # Clean up, and return output segmentation map
     gc.collect
     return out_map
+
+
+
+def HysterThresh(in_image, v_low, v_high):
+    """ Function (adapted from Emmanuelle Gouillart's blog) to perform Hysteresis thresholding on a probabalistic border map """
+
+    # Create masks of pixels brighter than the high and low hysteresis thresholds
+    mask_low = in_image > v_low
+    mask_high = in_image > v_high
+
+    # Identift connected pixels
+    labels_low = skimage.measure.label(mask_low, background=0) + 1
+    count_low = labels_low.max()
+
+    # Check if connected components contain pixels from mask_high
+    sums = scipy.ndimage.sum(mask_high, labels_low, np.arange(count_low+1))
+    good_label = np.zeros((count_low + 1,), bool)
+    good_label[1:] = sums[1:] > 0
+    out_mask = good_label[labels_low]
+
+    # Return resulting masl
+    return out_mask
 
 
 
