@@ -13,6 +13,7 @@ import astropy.stats
 import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
+import skimage.feature
 import PIL.Image
 import joblib
 import AstroCell.Process
@@ -266,6 +267,65 @@ class RGB():
 
 
 
+    def DeblendSegment(self):
+        """ Method that combines watershed segmentation of each channel to produce unifed deblended segmentation """
+
+        # Record number of Monte-Carlo watershed iterations to RGB object, just for future reference
+        self.water_iter = self.coadd.water_iter
+
+        # Loop over the watershed border map from each channel, to create combined border map (with copies both with and without edges)
+        water_border_stack = np.zeros(self.coadd.map.shape)
+        water_border_stack_edges = np.zeros(self.coadd.map.shape)
+        for channel in self.iter_coadd:
+
+            # Add full border map to stack
+            water_border_stack_edges += channel.water_border.copy()
+
+            # Erode away the borders corresponding to the edges of the thresholding segments (after all, we already know there's borders there!)
+            erode_structure = scipy.ndimage.generate_binary_structure(2,2)
+            thresh_seg_erode = scipy.ndimage.binary_erosion(channel.thresh_segmap, structure=erode_structure, iterations=1)
+            water_border_erode = channel.water_border.copy()
+            water_border_erode[ np.where(thresh_seg_erode==0) ] = 0
+
+            # Add full border map to stack
+            water_border_stack += water_border_erode.copy()
+
+        # Perform Hysteresis thresholding on stacked border map
+        hyster_border = AstroCell.Process.HysterThresh(water_border_stack, (0.15*self.water_iter), (0.2*self.water_iter))
+
+        # Use hysteresis borders to deblend watershed map
+        hyster_seg_map = water_border_stack.copy()
+        hyster_seg_map[ np.where(hyster_seg_map>0) ] = 1
+        hyster_seg_map[ np.where(hyster_border) ] = 0
+
+        # Label features
+        hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map)[0]
+
+        # Remove spuriously small features
+        hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
+        hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<=5) ]
+        hyster_seg_flat = hyster_seg_map.copy().flatten()
+        hyster_seg_flat[np.in1d(hyster_seg_flat,hyster_exclude)] = 0
+        hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)
+        hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
+
+        # Conduct binary opening to remove any remaining 'bridges'
+        open_structure = scipy.ndimage.generate_binary_structure(2,1)
+        hyster_seg_map_open = scipy.ndimage.binary_opening(hyster_seg_map, structure=open_structure, iterations=2).astype(float)
+        hyster_seg_map_open *= hyster_seg_map
+
+        # Loop over features, seeing if they were removed by binary opening; if so re-include thems
+        for i in range(0, int(hyster_seg_map.max())):
+            if np.where(hyster_seg_map==i)[0].shape[0] > 0:
+                if np.where(hyster_seg_map_open==i)[0].shape[0] == 0:
+                    hyster_seg_map_open[ np.where(hyster_seg_map==i) ] = i
+        #astropy.io.fits.writeto('/home/chris/hyster_seg_map_open.fits', hyster_seg_map_open.astype(float), clobber=True)
+
+
+        pdb.set_trace()
+
+
+
     def OverviewImage(self):
 
         """
@@ -287,6 +347,9 @@ class RGB():
         fig.savefig( os.path.join( out_dir, in_image.replace('.bmp','_phoutils_seg.png') ), dpi=400.0 )
         """
 
+
+
 class Raw(object):
+    """ A dummy class, to allow 'holding' objects to be created """
     pass
 

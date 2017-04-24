@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
-    dill_dir = '/home/chris/Data/'
+    dill_dir = '/home/chris/Data/AstroCell/Dills/'
     img_dir = 'Histochemial/Mammary/Ref_LO_Specific'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
@@ -115,13 +115,11 @@ if __name__ == '__main__':
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
 
-        # Use Monte-Carlo watershed segmentation to deblend cells
-        [ channel.WaterDeblend() for channel in rgb.iter_coadd ]"""
+        # Use Monte-Carlo watershed segmentation to find borders between blended cells
+        [ channel.WaterBorders(iter_total=500) for channel in rgb.iter_coadd ]"""
 
-        rgb.b.WaterDeblend()
-
-        """# Use Monte-Carlo random walker segmentation to deblend cells
-        [ channel.WalkerDeblend() for channel in rgb.iter_coadd ]"""
+        # Combine watershed border map from all bands
+        rgb.DeblendSegment()
 
         # Save processed RGB object, for later testing use
         rgb.Dill(dill_dir)
@@ -130,10 +128,11 @@ if __name__ == '__main__':
 
 
 
-        astropy.io.fits.writeto('/home/chris/det_map.fits', rgb.b.detmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/thresh_seg_map.fits', rgb.b.thresh_segmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/water_border_map.fits', rgb.b.water_border, clobber=True)
-        astropy.io.fits.writeto('/home/chris/walker_border_map.fits', rgb.b.walker_border, clobber=True)
+
+
+        astropy.io.fits.writeto('/home/chris/det_map_coadd.fits', rgb.coadd.detmap, clobber=True)
+        astropy.io.fits.writeto('/home/chris/thresh_seg_map_coadd.fits', rgb.c.thresh_segmap, clobber=True)
+        astropy.io.fits.writeto('/home/chris/water_map.fits', rgb.r.water_border, clobber=True)
 
 
 
