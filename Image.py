@@ -328,7 +328,7 @@ class Image():
 
 
 
-    def WaterDeblend(self, seg_map=None):
+    def WaterBorders(self, iter_total=500, seg_map=None):
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
         # If no segment map specified, use map from thesholding segmentation
@@ -341,12 +341,12 @@ class Image():
             return
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 1000
+        self.water_iter = iter_total
         processes = mp.cpu_count()-1
 
-        # Filter detection map with a Mexican-hat kernel
+        """# Filter detection map with a Mexican-hat kernel
         kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
-        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')
+        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')"""
 
         # Run random iterations in parallel, for speed
         water_map_list = []
@@ -373,7 +373,7 @@ class Image():
 
 
 
-    def WalkerDeblend(self, seg_map=None):
+    def WalkerBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
 
         # If no segment map specified, use map from thesholding segmentation
