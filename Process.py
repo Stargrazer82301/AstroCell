@@ -11,6 +11,8 @@ import astropy.logger
 astropy.log.setLevel('ERROR')
 import astropy.io.fits
 import skimage.feature
+import skimage.measure
+import pyamg
 from ChrisFuncs import SigmaClip, ProgressDir
 plt.ioff()
 
@@ -72,7 +74,7 @@ def WaterWrapper(Image, seg_map, iter_total):
     n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = int( 3.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
+    n_markers = int( 2.5 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -82,7 +84,7 @@ def WaterWrapper(Image, seg_map, iter_total):
     # Prune markers located too close to each other
     markers = ProximatePrune(markers, 0.5*np.sqrt(Image.thresh_area/np.pi))
 
-    # Loop over each segment, ensuring that each recieves at least one marker
+    # Loop over each threshold segment, ensuring that each recieves at least one marker
     thresh_seg_labels = np.unique(seg_map)
     for i in range(1,len(thresh_seg_labels)):
         label = thresh_seg_labels[i]
@@ -90,6 +92,15 @@ def WaterWrapper(Image, seg_map, iter_total):
         label_marker = np.random.randint(label_where[0].shape[0])
         markers[i,0] = label_where[0][label_marker]
         markers[i,1] = label_where[1][label_marker]
+
+    # Loop over each Canny Feature segment, ensuring that each recieves at least one marker
+    canny_labels = np.unique(Image.canny_features)
+    for i in range(0,len(canny_labels)):
+        label = canny_labels[i]
+        label_where = np.where(Image.canny_features==label)
+        label_marker = np.random.randint(label_where[0].shape[0])
+        markers[i+len(thresh_seg_labels),0] = label_where[0][label_marker]
+        markers[i+len(thresh_seg_labels),1] = label_where[1][label_marker]
 
     # Convert marker points into a marker array
     marker_map = np.zeros(Image.map.shape, dtype=np.int)
@@ -102,12 +113,13 @@ def WaterWrapper(Image, seg_map, iter_total):
     # Create mask and invert map
     mask_map = np.zeros(seg_map.shape).astype(bool)
     mask_map[np.where(seg_map>0)] = True
-    in_map = Image.mexmap.copy()
+    in_map = Image.detmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
 
     # Conduct segmentation
-    out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=1,
-                                         offset=None, mask=mask_map, compactness=0.2, watershed_line=False)
+    out_map = skimage.morphology.watershed(in_map, marker_map, connectivity=np.zeros([3,3])+1,
+                                         offset=None, mask=None, compactness=0, watershed_line=False)
+    out_map[np.where(seg_map==0)] = 0
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
