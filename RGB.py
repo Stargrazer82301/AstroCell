@@ -274,16 +274,27 @@ class RGB():
         # Record number of Monte-Carlo watershed iterations to RGB object, just for future reference
         self.water_iter = self.coadd.water_iter
 
-        # Loop over the watershed border map from each channel, to create combined border map (with copies both with and without edges)
+        # Determine depth-of-coverage for each pixel
+        water_border_depth = np.zeros(self.coadd.map.shape)
+        for channel in self.iter_coadd:
+            water_border_depth += channel.thresh_segmap.astype(bool).astype(int)
+
+        # Set up stacks for border-finding watershed (with and without border erosion)
         water_border_stack = np.zeros(self.coadd.map.shape)
         water_border_stack_edges = np.zeros(self.coadd.map.shape)
+
+        """# Set up stacks to hold hysteresis borders and thresholding
+        hyster_border_stack = np.zeros(self.coadd.map.shape)
+        hyster_water_border_stack = np.zeros(self.coadd.map.shape)"""
+
+        # Loop over the watershed border map from each channel, to create combined border map (with copies both with and without edges)
         for channel in self.iter_coadd:
 
-            # Add full border map to stack
+            # Add watershed border map to stack
             water_border_stack_edges += channel.water_border.copy()
 
             # Erode away the borders corresponding to the edges of the thresholding segments (after all, we already know there's borders there!)
-            erode_structure = scipy.ndimage.generate_binary_structure(2,2)
+            erode_structure = scipy.ndimage.generate_binary_structure(2,1)
             thresh_seg_erode = scipy.ndimage.binary_erosion(channel.thresh_segmap, structure=erode_structure, iterations=1)
             water_border_erode = channel.water_border.copy()
             water_border_erode[ np.where(thresh_seg_erode==0) ] = 0
@@ -291,11 +302,28 @@ class RGB():
             # Add full border map to stack
             water_border_stack += water_border_erode.copy()
 
-        """# Perform Hysteresis thresholding on stacked border map
-        hyster_border = AstroCell.Process.HysterThresh(water_border_stack, (0.15*self.water_iter), (0.2*self.water_iter))
+
+        #astropy.io.fits.writeto('/home/chris/hyster_seg_map_open.fits', hyster_seg_map_open.astype(float), clobber=True)
+        pdb.set_trace()
+
+        """# Trim watershed border map on basis of hysteresis
+        hyster_water_border = channel.water_border.copy()
+        hyster_water_border[ np.where(hyster_water_border==0) ] = np.NaN
+        hyster_water_border[ np.where(hyster_border==True) ] = np.NaN
+
+        # Normalise hysteresis-trimmed watershed border map, invert it, remove NaNs, add to stack, then record to object
+        hyster_water_border /= float(self.water_iter)
+        hyster_water_border = 1.0 / hyster_water_border
+        hyster_water_border[ np.where(np.isnan(hyster_water_border)) ] = 0.0
+        hyster_water_border_stack += hyster_water_border
+        channel.hyster_water_border = hyster_water_border
+        hyster_border_stack += hyster_border"""
+
+        # Perform Hysteresis thresholding on stacked border map
+        hyster_border = AstroCell.Process.HysterThresh(water_border_stack_edges, (0.3*self.water_iter), (0.4*self.water_iter))
 
         # Use hysteresis borders to deblend watershed map
-        hyster_seg_map = water_border_stack.copy()
+        hyster_seg_map = water_border_stack_edges.copy()
         hyster_seg_map[ np.where(hyster_seg_map>0) ] = 1
         hyster_seg_map[ np.where(hyster_border) ] = 0
 
@@ -319,15 +347,11 @@ class RGB():
         for i in range(0, int(hyster_seg_map.max())):
             if np.where(hyster_seg_map==i)[0].shape[0] > 0:
                 if np.where(hyster_seg_map_open==i)[0].shape[0] == 0:
-                    hyster_seg_map_open[ np.where(hyster_seg_map==i) ] = i"""
+                    hyster_seg_map_open[ np.where(hyster_seg_map==i) ] = i
 
-
-        # Invert watershed stack in preparation for deblending
-        water_border_invert = water_border_stack.copy()
-        water_border_invert[ np.where(water_border_invert==0) ] = np.NaN
-        water_border_invert = (-1.0 * water_border_invert) + np.nanmax(water_border_invert)
-        water_border_invert -= np.nanmin(water_border_invert)
-        water_border_invert[ np.where(np.isnan(water_border_invert)) ] = 0.0
+        # Shuffle labels
+        hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
+        hyster_seg_map_open = AstroCell.Process.LabelShuffle(hyster_seg_map_open).astype(float)
 
         # Create binary map of combined segmentation
         thresh_seg_stack = np.zeros(water_border_stack.shape)

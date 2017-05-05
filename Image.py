@@ -365,6 +365,9 @@ class Image():
         for i in range(0, len(water_map_list)):
             border_map += skimage.segmentation.find_boundaries(water_map_list[i], connectivity=2)
 
+        # Neaten border edges
+        border_map[ np.where(self.thresh_segmap==0) ] = 0
+
         # Record watershed output
         del(water_map_list)
         gc.collect()
@@ -388,10 +391,6 @@ class Image():
         # Prepare parameters for Monte Carlo segmenations
         iter_total = 250
         processes = int(0.5*mp.cpu_count())
-
-        """# Filter detection map with a Mexican-hat kernel
-        kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
-        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')"""
 
         # Run random iterations in parallel, for speed
         walker_map_list = []
