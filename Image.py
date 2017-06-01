@@ -180,7 +180,6 @@ class Image():
 
 
 
-
     def CannyCellStack(self):
         """ Method (redundant?) that stacks upon positions of identified features, to create a matched filter """
 

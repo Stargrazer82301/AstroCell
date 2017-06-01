@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
-    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#'Histochemial/3100_zeb1/'
+    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
@@ -75,8 +75,9 @@ if __name__ == '__main__':
 
         # Load in a pre-processed dill file (for testing, to skip reprocessing)
         rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/2198 r2.dj', 'rb' ) )
-
-        """# Read in raw image, constructing an AstroCell RGB object
+        #rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/3100_zeb1.dj', 'rb' ) )
+        """
+        # Read in raw image, constructing an AstroCell RGB object
         rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
 
         # Record if operating in parallel
@@ -116,8 +117,8 @@ if __name__ == '__main__':
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
 
         # Use Monte-Carlo watershed segmentation to find borders between blended cells
-        [ channel.WaterBorders(iter_total=500) for channel in rgb.iter_coadd ]"""
-
+        [ channel.WaterBorders(iter_total=500) for channel in rgb.iter_coadd ]
+        """
         # Combine watershed border map from all bands
         rgb.DeblendSegment()
 
