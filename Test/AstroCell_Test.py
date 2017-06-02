@@ -119,8 +119,12 @@ if __name__ == '__main__':
         # Use Monte-Carlo watershed segmentation to find borders between blended cells
         [ channel.WaterBorders(iter_total=500) for channel in rgb.iter_coadd ]
         """
-        # Combine watershed border map from all bands
+        # Deblend watershed border maps, to perform segmentations for each band
         rgb.DeblendSegment()
+
+        rgb.
+
+
 
         # Save processed RGB object, for later testing use
         rgb.Dill(dill_dir)

@@ -269,67 +269,6 @@ class RGB():
 
 
 
-    def DeblendSegment(self):
-        """ Method that combines watershed segmentation of each channel to produce unifed deblended segmentation """
-
-        # Record number of Monte-Carlo watershed iterations to RGB object, just for future reference
-        self.water_iter = self.coadd.water_iter
-
-        # Determine depth-of-coverage for each pixel
-        water_border_depth = np.zeros(self.coadd.map.shape)
-        for channel in self.iter_coadd:
-            water_border_depth += channel.thresh_segmap.astype(bool).astype(int)
-
-        # Set up stacks for border-finding watershed (with and without border erosion)
-        water_border_stack = np.zeros(self.coadd.map.shape)
-        water_border_stack_edges = np.zeros(self.coadd.map.shape)
-
-        # Loop over the watershed border map from each channel, to create combined border map (with copies both with and without edges)
-        for channel in self.iter_coadd:
-
-            # Add watershed border map to stack
-            water_border_stack_edges += channel.water_border.copy()
-
-            # Erode away the borders corresponding to the edges of the thresholding segments (after all, we already know there's borders there!)
-            erode_structure = scipy.ndimage.generate_binary_structure(2,1)
-            thresh_seg_erode = scipy.ndimage.binary_erosion(channel.thresh_segmap, structure=erode_structure, iterations=1)
-            water_border_erode = channel.water_border.copy()
-            water_border_erode[ np.where(thresh_seg_erode==0) ] = 0
-
-            # Add full border map to stack
-            water_border_stack += water_border_erode.copy()
-
-            # Perform hysteresis thresholding on this channel's watershed border map
-            hyster_border = AstroCell.Process.HysterThresh(channel.water_border.copy(), (0.2*self.water_iter), (0.4*self.water_iter))
-
-            # Perform segmentation using hysteresis
-            hyster_seg_map = np.invert(hyster_border).astype(int)
-            hyster_seg_map[ np.where(channel.thresh_segmap==0) ] = 0
-            hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map)[0]
-            channel.hyster_seg_map = hyster_seg_map
-
-            # Conduct binary opening to remove any remaining 'bridges'
-            open_structure = scipy.ndimage.generate_binary_structure(2,1)
-            hyster_seg_map_open = scipy.ndimage.binary_opening(hyster_seg_map, structure=open_structure, iterations=1).astype(float)
-            hyster_seg_map_open *= hyster_seg_map
-
-            # Remove spuriously small features, based on having 5 or fewer pixels
-            hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
-            hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<=5) ]
-            hyster_seg_flat = hyster_seg_map.copy().flatten()
-            hyster_seg_flat[np.in1d(hyster_seg_flat,hyster_exclude)] = 0
-            hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)
-
-            # Shuffle labels of hysteresis segmentation map, and record
-            hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
-            channel.hyster_segmap = hyster_seg_map.copy90
-
-
-            pdb.set_trace()
-            #astropy.io.fits.writeto('/home/chris/hyster_seg_map.fits', hyster_seg_map.astype(float), clobber=True)
-
-
-
     def OverviewImage(self):
 
         """
