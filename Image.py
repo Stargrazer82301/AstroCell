@@ -426,7 +426,6 @@ class Image():
         hyster_seg_map = np.invert(hyster_border).astype(int)
         hyster_seg_map[ np.where(self.thresh_segmap==0) ] = 0
         hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map)[0]
-        self.hyster_seg_map = hyster_seg_map
 
         # Conduct binary opening to remove any remaining 'bridges'
         open_structure = scipy.ndimage.generate_binary_structure(2,1)
@@ -441,6 +440,7 @@ class Image():
         hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)
 
         # Shuffle labels of hysteresis segmentation map, and record
+        hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map)[0]
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
         self.hyster_segmap = hyster_seg_map.copy()
         #astropy.io.fits.writeto('/home/chris/hyster_seg_map.fits', hyster_seg_map.astype(float), clobber=True)

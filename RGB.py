@@ -111,10 +111,10 @@ class RGB():
         self.coadd = AstroCell.Image.Image(coadd)
 
         # Create tuple containing each channel's Image object (including the coadd) for iterating over
-        self.iter_coadd = (self.b,self.g,self.r,self.coadd)
+        self.iter_coadd = (self.coadd,self.b,self.g,self.r)
 
         # Make tuple of strings giving name of each channel (including the coadd), to use for iteration
-        self.channels = ('b','g','r','coadd')
+        self.channels = ('coadd','b','g','r')
 
         # Record name of coadd channel, location of temp dir, and parallelisation
         self.coadd.name = 'coadd'
@@ -266,6 +266,65 @@ class RGB():
             conv_sub -= np.nanmin(conv_sub)
             channel.detmap = conv_sub
             #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
+
+
+
+    def SegmentCombine(self):
+        """ Method that combines the segmentations from each individual channel to produces the final segmenation """
+
+        # Create segmentation 'cube', holding the segments from each band (NB, the channel index comes first, to simplify FITS output)
+        seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        for i in range(0, len(self.iter_coadd)):
+            seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
+
+        # Loop over each segment in the coadd (treating the coadd as the 'base' channel for the segmentation)
+        seg_indices_coadd = np.unique(seg_cube[0,:,:])
+        seg_indices_coadd = seg_indices_coadd[np.where(seg_indices_coadd>0)]
+        for index in seg_indices_coadd:
+
+            # Create mask to identify pixels that overlap with base segment
+            index_where = np.where(seg_cube[0,:,:] == index)
+            index_mask = np.zeros([self.cube.shape[0], self.cube.shape[1]]).astype(int)
+            index_mask[index_where] = 1
+            index_seg_cube = seg_cube.copy()
+            index_seg_cube[:, (np.where(index_mask==0))[0], (np.where(index_mask==0))[1]] = 0
+
+            # Keep iterating to find other segments that overlap with base segment, and which overlap with them, and so forth, until no more added
+            intersect_count = 0
+            intersect_count_new = np.unique(index_seg_cube).shape[0] - 1
+            intersect_mask = index_mask.copy()
+            intersect_seg_cube = seg_cube.copy()
+            while intersect_count_new > intersect_count:
+                intersect_count = intersect_count_new
+
+                # Loop over each channel, producing version of seg cube containing segments that intersect with the current mask
+                intersect_mask = np.zeros([self.cube.shape[0], self.cube.shape[1]]).astype(int)
+                for i in range(0, len(self.iter_coadd)):
+
+                    # Loop over intersecting indices in this channel (skipping 0 index, for obvious reaosns)
+                    for intersect in np.unique(intersect_seg_cube[i,:,:]):
+                        if intersect == 0:
+                            continue
+
+                        # Add to mask all pixels that contain current intersection
+                        intersect_where = np.where(seg_cube[i,:,:] == intersect)
+                        intersect_mask[intersect_where] = 1
+
+                # Assess how many different segments are found within the updated mask region
+                intersect_seg_cube = seg_cube.copy()
+                intersect_seg_cube[:, (np.where(intersect_mask==0))[0], (np.where(intersect_mask==0))[1]] = 0
+                intersect_count_new = np.unique(intersect_seg_cube).shape[0] - 1
+
+
+
+
+            pdb.set_trace()
+            #astropy.io.fits.writeto('/home/chris/intersect_mask.fits', intersect_mask.astype(float), clobber=True)
+
+
+
+
+
 
 
 
