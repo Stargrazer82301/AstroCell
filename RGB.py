@@ -273,53 +273,35 @@ class RGB():
         """ Method that combines the segmentations from each individual channel to produces the final segmenation """
 
         # Create segmentation 'cube', holding the segments from each band (NB, the channel index comes first, to simplify FITS output)
-        seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        hyster_seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
         for i in range(0, len(self.iter_coadd)):
-            seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
+            hyster_seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
 
-        # Loop over each segment in the coadd (treating the coadd as the 'base' channel for the segmentation)
-        seg_indices_coadd = np.unique(seg_cube[0,:,:])
-        seg_indices_coadd = seg_indices_coadd[np.where(seg_indices_coadd>0)]
-        for index in seg_indices_coadd:
+         # Use Canny features map to get distribution of feature sizes (assuming circuar features)
+        canny_areas = np.unique(self.coadd.canny_features, return_counts=True)[1].astype(float)
+        canny_diam = int( np.floor( SigmaClip(np.sqrt(canny_areas / np.pi), sigma_thresh=2.0, median=True)[1] ) )
 
-            # Create mask to identify pixels that overlap with base segment
-            index_where = np.where(seg_cube[0,:,:] == index)
-            index_mask = np.zeros([self.cube.shape[0], self.cube.shape[1]]).astype(int)
-            index_mask[index_where] = 1
-            index_seg_cube = seg_cube.copy()
-            index_seg_cube[:, (np.where(index_mask==0))[0], (np.where(index_mask==0))[1]] = 0
+        # Create segmentation hyper-cube (0th axis for erosion, 1th for channel, 2th for )
+        hyper_seg_cube = np.zeros([canny_diam, 4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
 
-            # Keep iterating to find other segments that overlap with base segment, and which overlap with them, and so forth, until no more added
-            intersect_count = 0
-            intersect_count_new = np.unique(index_seg_cube).shape[0] - 1
-            intersect_mask = index_mask.copy()
-            intersect_seg_cube = seg_cube.copy()
-            while intersect_count_new > intersect_count:
-                intersect_count = intersect_count_new
+        # Add un-eroded maps to first index of segmentation hyper-cube
+        for i in range(0, len(self.iter_coadd)):
+            hyper_seg_cube[0,i,:,:] = hyster_seg_cube[i,:,:].astype(bool).astype(int).astype(float)
 
-                # Loop over each channel, producing version of seg cube containing segments that intersect with the current mask
-                intersect_mask = np.zeros([self.cube.shape[0], self.cube.shape[1]]).astype(int)
-                for i in range(0, len(self.iter_coadd)):
+        # Loop over different degrees of erosion, for each channel
+        for j in range(1, canny_diam):
+            for i in range(0, len(self.iter_coadd)):
 
-                    # Loop over intersecting indices in this channel (skipping 0 index, for obvious reaosns)
-                    for intersect in np.unique(intersect_seg_cube[i,:,:]):
-                        if intersect == 0:
-                            continue
+                # Perform requested degree of binary erosion on current channel
+                bin_structure = scipy.ndimage.generate_binary_structure(2,2)
+                bin_hyster_seg = hyster_seg_cube[i,:,:].astype(bool).astype(int)
+                hyper_seg_cube[j,i,:,:] = scipy.ndimage.binary_erosion(bin_hyster_seg, structure=bin_structure, iterations=j).astype(float)
 
-                        # Add to mask all pixels that contain current intersection
-                        intersect_where = np.where(seg_cube[i,:,:] == intersect)
-                        intersect_mask[intersect_where] = 1
+        hyper_seg = np.sum(hyper_seg_cube, axis=0)
+        hyper_seg = np.sum(hyper_seg, axis=0)
 
-                # Assess how many different segments are found within the updated mask region
-                intersect_seg_cube = seg_cube.copy()
-                intersect_seg_cube[:, (np.where(intersect_mask==0))[0], (np.where(intersect_mask==0))[1]] = 0
-                intersect_count_new = np.unique(intersect_seg_cube).shape[0] - 1
-
-
-
-
-            pdb.set_trace()
-            #astropy.io.fits.writeto('/home/chris/intersect_mask.fits', intersect_mask.astype(float), clobber=True)
+        pdb.set_trace()
+#        astropy.io.fits.writeto('/home/chris/hyper_seg.fits', hyper_seg.astype(float), clobber=True)
 
 
 
