@@ -231,7 +231,7 @@ class Image():
 
 
 
-    def LogDogBlobs(self, canny_features=None):
+    def LogDogBlobs(self, canny_features=None, force_attribute=False):
         """ A method that uses Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to identify which pixels have cells in """
 
         # If canny features map provided, use this; otherwise just use features map for this channel
@@ -276,11 +276,11 @@ class Image():
         blob_features = AstroCell.Process.LabelShuffle(blob_features)
 
         # Return mask
-        if self.parallel:
-            return blob_mask, blob_features
-        else:
+        if force_attribute:
             self.logdog_mask = blob_mask
             self.logdog_features = blob_features
+        else:
+            return blob_mask, blob_features
         #astropy.io.fits.writeto('/home/chris/blob_mask.fits', blob_mask, clobber=True)
 
 
