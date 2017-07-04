@@ -47,15 +47,22 @@ def ProximatePrune(points, distance):
 def LabelShuffle(label_map_old):
     """ Function that takes a labelled segmented map and generates random labels, for more aesthetically pleasing visualisations """
 
-    # Perform fresh labeling of map, just to be safe
-    label_map_old = scipy.ndimage.measurements.label(label_map_old)[0]
+    # Check that no labels are duplicated
+    for i in range(1,label_map_old.max()):
+        label_map_indv = label_map_old.copy()
+        label_map_indv[np.where(label_map_indv!=i)] = 0
+        label_map_indv_sublabel = scipy.ndimage.measurements.label(label_map_indv)
+        if label_map_indv_sublabel[1]>1:
+            for i in range(2,label_map_indv_sublabel[1]):
+                label_map_old[ np.where(label_map_indv_sublabel[0] == i) ] = label_map_old.max() + (i-1)
 
     # Find each label in map
     label_list = np.unique(label_map_old)
-    label_shuffle = np.random.permutation(label_list[np.where(label_list>0)])
-    label_map_new = label_map_old.copy()
+    label_list = label_list[np.where(label_list>0)]
+    label_shuffle = np.random.permutation(np.arange(1,label_list.size+1))
 
     # Loop over labels, picking a new label for each
+    label_map_new = np.zeros(label_map_old.shape).astype(int)
     for i in range(1,label_list.shape[0]):
         label_old = label_list[i]
         label_new = label_list.shape[0] + label_shuffle[i-1]
@@ -143,7 +150,7 @@ def WalkerWrapper(Image, seg_map, iter_total):
     n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = int( 2.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
+    n_markers = int( 1.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -184,10 +191,10 @@ def WalkerWrapper(Image, seg_map, iter_total):
     mask_map[np.where(seg_map>0)] = True
     in_map = Image.detmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
-    in_map[np.where(mask_map==False)] = 999
+    #in_map[np.where(mask_map==False)] = 999
 
     # Conduct segmentation
-    out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=15000, mode='cg_mg', tol=0.001,
+    out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=15, mode='cg_mg', tol=0.0025,
                                                       copy=True, multichannel=False, return_full_prob=False, spacing=None)
 
     # Estimate completion time
