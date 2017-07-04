@@ -277,31 +277,49 @@ class RGB():
         for i in range(0, len(self.iter_coadd)):
             hyster_seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
 
-         # Use Canny features map to get distribution of feature sizes (assuming circuar features)
-        canny_areas = np.unique(self.coadd.canny_features, return_counts=True)[1].astype(float)
-        canny_diam = int( np.floor( SigmaClip(np.sqrt(canny_areas / np.pi), sigma_thresh=2.0, median=True)[1] ) )
+        # Create segmentation stack
+        hyster_seg_stack = np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0)
 
-        # Create segmentation hyper-cube (0th axis for erosion, 1th for channel, 2th for )
-        hyper_seg_cube = np.zeros([canny_diam, 4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        # Convolve segmentation stack with a small Gaussian kernel (but keep empty pixels as empty)
+        hyster_seg_stack_mask = np.zeros(hyster_seg_stack.shape).astype(int)
+        hyster_seg_stack_mask[np.where(hyster_seg_stack>0)] = 1
+        kernel = astropy.convolution.kernels.Gaussian2DKernel(1.5)
+        hyster_seg_stack = astropy.convolution.convolve_fft(hyster_seg_stack, kernel, interpolate_nan=True, normalize_kernel=True,
+                                                            quiet=True, boundary='reflect', fill_value=0, allow_huge=True)
+        hyster_seg_stack[np.where(hyster_seg_stack_mask==0)] = 0
 
-        # Add un-eroded maps to first index of segmentation hyper-cube
-        for i in range(0, len(self.iter_coadd)):
-            hyper_seg_cube[0,i,:,:] = hyster_seg_cube[i,:,:].astype(bool).astype(int).astype(float)
+        # Work out combined minimum area threshold
+        thresh_area_list = []
+        [ thresh_area_list.append(channel.thresh_area) for channel in self.iter_coadd ]
+        self.thresh_area = np.nanmin(np.array(thresh_area_list))
 
-        # Loop over different degrees of erosion, for each channel
-        for j in range(1, canny_diam):
-            for i in range(0, len(self.iter_coadd)):
+        # Initiate meta-segmentation as its own (quasi-dummy) Image object
+        self.meta = AstroCell.Image.Image(hyster_seg_stack)
+        self.meta.parallel = self.parallel
+        self.meta.temp = self.temp
+        self.meta.detmap = self.meta.map.copy()
+        self.meta.thresh_area = self.meta.map.shape[0] / np.where( self.meta.map>0 )[0].shape[0]
+        self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
 
-                # Perform requested degree of binary erosion on current channel
-                bin_structure = scipy.ndimage.generate_binary_structure(2,2)
-                bin_hyster_seg = hyster_seg_cube[i,:,:].astype(bool).astype(int)
-                hyper_seg_cube[j,i,:,:] = scipy.ndimage.binary_erosion(bin_hyster_seg, structure=bin_structure, iterations=j).astype(float)
+        # Do blob-finding requires for later segmentation
+        self.meta.CannyBlobs(sigma=2.0)
+        self.meta.LogDogBlobs(canny_features=None, force_attribute=True)
 
-        hyper_seg = np.sum(hyper_seg_cube, axis=0)
-        hyper_seg = np.sum(hyper_seg, axis=0)
+        # Process meta-segmentation using monte-carlo watershed thresholding
+        pdb.set_trace()
+        self.meta_water_iter = 800
+        self.meta.WaterBorders(seg_map=self.meta.thresh_segmap, iter_total=self.meta_water_iter)
+        self.meta.water_border[np.where(hyster_seg_stack_mask==0)] = 0
+
+        # Perform hysteresis thresholding on watershed border map
+        self.meta.DeblendSegment(thresh_lower=0.1, thresh_upper=0.4)
+
+
+
 
         pdb.set_trace()
-#        astropy.io.fits.writeto('/home/chris/hyper_seg.fits', hyper_seg.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/water_border_meta.fits', self.meta.water_border.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/meta_hyster_seg.fits', self.meta.hyster_segmap.astype(float), clobber=True)
 
 
 
