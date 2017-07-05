@@ -375,7 +375,7 @@ class Image():
 
 
 
-    def WalkerBorders(self, seg_map=None):
+    def WalkerBorders(self, iter_total=250, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
 
         # If no segment map specified, use map from thesholding segmentation
@@ -388,7 +388,7 @@ class Image():
             return
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 250
+        self.walker_iter = iter_total
         processes = int(0.5*mp.cpu_count())
 
         # Run random iterations in parallel, for speed
@@ -407,6 +407,9 @@ class Image():
         border_map = np.zeros(seg_map.shape)
         for i in range(0, len(walker_map_list)):
             border_map += skimage.segmentation.find_boundaries(walker_map_list[i], connectivity=2)
+
+        # Neaten border edges
+        border_map[ np.where(self.thresh_segmap==0) ] = 0
 
         # Record watershed output
         del(walker_map_list)
