@@ -72,7 +72,7 @@ if __name__ == '__main__':
     in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
     in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
     for in_image in np.random.permutation(in_images):
-
+        """
         # Load in a pre-processed dill file (for testing, to skip reprocessing)
         rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/2198 r2.dj', 'rb' ) )
         #rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/3100_zeb1.dj', 'rb' ) )
@@ -121,23 +121,22 @@ if __name__ == '__main__':
 
         # Deblend watershed border maps, to perform segmentations for each band
         [ channel.DeblendSegment() for channel in rgb.iter_coadd ]
-        """
+
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-        """
-        # Save processed RGB object, for later testing use
-        rgb.Dill(dill_dir)
         pdb.set_trace()
-        """
+
+        """# Save processed RGB object, for later testing use
+        rgb.Dill(dill_dir)
+        pdb.set_trace()"""
 
 
 
 
 
 
-        astropy.io.fits.writeto('/home/chris/det_map_coadd.fits', rgb.coadd.detmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/thresh_seg_map_coadd.fits', rgb.c.thresh_segmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/water_map.fits', rgb.r.water_border, clobber=True)
+
+        astropy.io.fits.writeto('/home/chris/det_map_coadd.fits', rgb.coadd.detmap.astype(float), clobber=True)
 
 
 

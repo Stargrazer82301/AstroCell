@@ -298,28 +298,31 @@ class RGB():
         self.meta.parallel = self.parallel
         self.meta.temp = self.temp
         self.meta.detmap = self.meta.map.copy()
-        self.meta.thresh_area = self.meta.map.shape[0] / np.where( self.meta.map>0 )[0].shape[0]
-        self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
+        self.meta.thresh_area = self.thresh_area
+
+        # Create stacked thresholding segmentation map from all 4 channels, to identify every pixel deemed to be 'cell'
+        thresh_seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        for i in range(0, len(self.iter_coadd)):
+            thresh_seg_cube[i,:,:] = self.iter_coadd[i].thresh_segmap
+        thresh_seg_stack = np.sum(thresh_seg_cube.astype(bool).astype(int), axis=0)
+        self.meta.thresh_segmap = thresh_seg_stack
+        #self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
 
         # Do blob-finding requires for later segmentation
         self.meta.CannyBlobs(sigma=2.0)
         self.meta.LogDogBlobs(canny_features=None, force_attribute=True)
 
         # Process meta-segmentation using monte-carlo watershed thresholding
-        pdb.set_trace()
-        self.meta_water_iter = 800
+        self.meta_water_iter = 500
         self.meta.WaterBorders(seg_map=self.meta.thresh_segmap, iter_total=self.meta_water_iter)
-        self.meta.water_border[np.where(hyster_seg_stack_mask==0)] = 0
+        self.meta.water_border[np.where(self.meta.thresh_segmap==0)] = 0
 
         # Perform hysteresis thresholding on watershed border map
-        self.meta.DeblendSegment(thresh_lower=0.1, thresh_upper=0.4)
-
-
-
+        self.meta.DeblendSegment(thresh_lower=0.1, thresh_upper=0.4, meta=True)
 
         pdb.set_trace()
-        #astropy.io.fits.writeto('/home/chris/water_border_meta.fits', self.meta.water_border.astype(float), clobber=True)
-        #astropy.io.fits.writeto('/home/chris/meta_hyster_seg.fits', self.meta.hyster_segmap.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/meta_water_border.fits', self.meta.water_border.astype(float), clobber=True)
 
 
 
