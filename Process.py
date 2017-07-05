@@ -44,14 +44,14 @@ def ProximatePrune(points, distance):
 
 
 
-def LabelShuffle(label_map_old):
+def LabelShuffle(label_map_old, test=False):
     """ Function that takes a labelled segmented map and generates random labels, for more aesthetically pleasing visualisations """
 
     # Check that no labels are duplicated
     for i in range(1,label_map_old.max()):
         label_map_indv = label_map_old.copy()
         label_map_indv[np.where(label_map_indv!=i)] = 0
-        label_map_indv_sublabel = scipy.ndimage.measurements.label(label_map_indv)
+        label_map_indv_sublabel = scipy.ndimage.measurements.label(label_map_indv, structure=scipy.ndimage.generate_binary_structure(2,2))
         if label_map_indv_sublabel[1]>1:
             for i in range(2,label_map_indv_sublabel[1]):
                 label_map_old[ np.where(label_map_indv_sublabel[0] == i) ] = label_map_old.max() + (i-1)
@@ -64,9 +64,13 @@ def LabelShuffle(label_map_old):
     # Loop over labels, picking a new label for each
     label_map_new = np.zeros(label_map_old.shape).astype(int)
     for i in range(1,label_list.shape[0]):
-        label_old = label_list[i]
+        label_old = label_list[i-1]
         label_new = label_list.shape[0] + label_shuffle[i-1]
         label_map_new[np.where(label_map_old==label_old)] = label_new
+
+    # Shift labels so that they start from 1 again
+    label_shift = np.min( label_map_new[ np.where(label_map_new>0) ] ) - 1
+    label_map_new[ np.where(label_map_new>0) ] -= label_shift
 
     # Return shuffled map
     return label_map_new
