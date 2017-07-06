@@ -260,7 +260,7 @@ class RGB():
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
         canny_diams_clip = SigmaClip(canny_diams, median=True)
-        kernel_size = np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
+        kernel_size = 0.5 * canny_diams_clip[1] #np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
         # Iterate over each channel, creating and removing background model for each
@@ -268,7 +268,7 @@ class RGB():
 
             # Create background map by excluding Canny cells from image
             canny_bg_map = channel.map.copy().astype(float)
-            canny_bg_map[ np.where(self.blob_mask>0) ] = np.NaN
+            canny_bg_map[ np.where(channel.blob_mask>0) ] = np.NaN
             canny_bg_fill = SigmaClip(canny_bg_map, median=True, sigma_thresh=3.0)[1]
 
             # Also exclude aberantly bright pixels from background map
