@@ -240,6 +240,14 @@ class RGB():
         blob_mask[np.where(blob_coadd<=0)] = 0
         self.blob_mask = blob_mask
 
+        # Create per-channel blob masks
+        for i in range(0, len(self.iter_coadd)):
+            channel_blob_coadd = self.canny_cube[:,:,i] + logdog_cube[:,:,i]
+            channel_blob_mask = channel_blob_coadd.copy()
+            channel_blob_mask[np.where(channel_blob_coadd>0)] = 1
+            channel_blob_mask[np.where(channel_blob_coadd<=0)] = 0
+            self.iter_coadd[i].blob_mask = channel_blob_mask
+
 
 
     def DetFilter(self):
