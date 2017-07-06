@@ -103,6 +103,18 @@ class RGB():
 
 
 
+    def RecMCFactor(self, mc_factor):
+        """ Brief method that records what multiplier is to be used to scale number of iterations for Monte-Carlo processes """
+
+        # Record temp dir location attribute to self
+        self.mc_factor = mc_factor
+
+        # Record temp dir location attribute to Image objects
+        for channel in self.iter:
+            channel.mc_factor = mc_factor
+
+
+
     def MakeCoadd(self):
         """ Method that adds an new Image object, that's a coadd of the three channels """
 
@@ -120,6 +132,7 @@ class RGB():
         self.coadd.name = 'coadd'
         self.coadd.temp = self.temp
         self.coadd.parallel = self.parallel
+        self.coadd.mc_factor = self.mc_factor
 
 
 
@@ -295,6 +308,7 @@ class RGB():
 
         # Initiate meta-segmentation as its own (quasi-dummy) Image object
         self.meta = AstroCell.Image.Image(hyster_seg_stack)
+        self.meta.name = 'meta'
         self.meta.parallel = self.parallel
         self.meta.temp = self.temp
         self.meta.detmap = self.meta.map.copy()
@@ -321,8 +335,9 @@ class RGB():
         self.meta.DeblendSegment(thresh_lower=0.1, thresh_upper=0.4, meta=True)
 
         pdb.set_trace()
+        #astropy.io.fits.writeto('/home/chris/meta_hyster_stack.fits', self.meta.water_border.astype(float), clobber=True)
         #astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
-        #astropy.io.fits.writeto('/home/chris/meta_water_border.fits', self.meta.water_border.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/hyster_seg_stack.fits', np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0).astype(float), clobber=True)
 
 
 

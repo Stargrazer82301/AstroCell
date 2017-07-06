@@ -329,8 +329,11 @@ class Image():
 
 
 
-    def WaterBorders(self, iter_total=500, seg_map=None):
+    def WaterBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
+
+        # Calculate total number of iterations to be performed
+        iter_total = 100 * self.mc_factor
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -377,8 +380,11 @@ class Image():
 
 
 
-    def WalkerBorders(self, iter_total=250, seg_map=None):
+    def WalkerBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
+
+        # Calculate total number of iterations to be performed
+        iter_total = 100 * self.mc_factor
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -513,12 +519,6 @@ class Image():
                 if False not in (hyster_seg_map_start == hyster_seg_map):
                     break
 
-#        # If not meta-segmenting, just perform a naive dilation to account for the hysteresis borders
-#        elif not meta:
-#            bin_structure = scipy.ndimage.generate_binary_structure(2,2)
-#            hyster_seg_map = scipy.ndimage.binary_dilation(hyster_seg_map, structure=bin_structure, iterations=1).astype(int)
-#            hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map, structure=label_structure)[0]
-
         # Permutate labels
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map)
 
@@ -528,22 +528,6 @@ class Image():
         hyster_seg_flat = hyster_seg_map.copy().flatten()
         hyster_seg_flat[np.in1d(hyster_seg_flat,hyster_exclude)] = 0
         hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)
-
-        #pdb.set_trace()
-        #astropy.io.fits.writeto('/home/chris/hyster_seg_map.fits', hyster_seg_map.astype(float), clobber=True)
-
-
-
-
-
-
-        """# Else if this is a standard deblending, remove spuriously small features, based on having 5 or fewer pixels
-        if not meta:
-            hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
-            hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<=5) ]
-            hyster_seg_flat = hyster_seg_map.copy().flatten()
-            hyster_seg_flat[np.in1d(hyster_seg_flat,hyster_exclude)] = 0
-            hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)"""
 
         # Shuffle labels of hysteresis segmentation map, and record
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)

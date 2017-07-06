@@ -87,7 +87,7 @@ def WaterWrapper(Image, seg_map, iter_total):
     n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = int( 2.5 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
+    n_markers = int( 3.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -136,7 +136,7 @@ def WaterWrapper(Image, seg_map, iter_total):
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
-    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+'; estimated completion time '+str(time_est)+'.')
+    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+' for '+str(Image.name)+' map; estimated completion time '+str(time_est)+'.')
 
     # Clean up, and return output segmentation map
     gc.collect
@@ -154,7 +154,7 @@ def WalkerWrapper(Image, seg_map, iter_total):
     n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = int( 1.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
+    n_markers = int( 2.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -203,7 +203,7 @@ def WalkerWrapper(Image, seg_map, iter_total):
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
-    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+'; estimated completion time '+str(time_est)+'.')
+    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+' for '+str(Image.name)+' map; estimated completion time '+str(time_est)+'.')
 
     # Clean up, and return output segmentation map
     gc.collect
