@@ -285,6 +285,7 @@ class RGB():
 
             # Re-set zero level, and record map to object
             conv_sub -= np.nanmin(conv_sub)
+            channel.bgmap = conv_map
             channel.detmap = conv_sub
             #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
 
