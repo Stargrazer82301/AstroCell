@@ -69,8 +69,9 @@ def LabelShuffle(label_map_old, test=False):
         label_map_new[np.where(label_map_old==label_old)] = label_new
 
     # Shift labels so that they start from 1 again
-    label_shift = np.min( label_map_new[ np.where(label_map_new>0) ] ) - 1
-    label_map_new[ np.where(label_map_new>0) ] -= label_shift
+    if np.where(label_map_new>0)[0].shape[0] > 0:
+        label_shift = np.min( label_map_new[ np.where(label_map_new>0) ] ) - 1
+        label_map_new[ np.where(label_map_new>0) ] -= label_shift
 
     # Return shuffled map
     return label_map_new
