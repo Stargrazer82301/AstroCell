@@ -1,5 +1,6 @@
 # Import smorgasbord
 import pdb
+import os
 import copy
 import gc
 import multiprocessing as mp
@@ -208,26 +209,46 @@ class Image():
         for i in range(0,len(loop_features)):
             feature = loop_features[i]
 
+            # Reject larger, possibly-blended features
+            if np.where(self.canny_features==feature)[0].shape[0] > np.percentile(canny_areas, 50.0):
+                continue
+
             # Identify centre coords of feature
             feature_centre = scipy.ndimage.measurements.center_of_mass(pad_canny_bin, labels=pad_canny_features, index=feature)
             i_centre, j_centre = int(np.round(feature_centre[0])), int(np.round(feature_centre[1]))
 
-            # Produce cutout centred on feature (rotate it an arbitary number of times?), and insert into stack
+            # Produce cutout centred on feature, for both det map and Canny feature map
             cutout = pad_map[i_centre-cutout_rad:i_centre+cutout_rad+1, j_centre-cutout_rad:j_centre+cutout_rad+1]
-            #cutout = np.rot90( cutout, k=np.random.randint(0, high=4) )
+            cutout_feature = pad_canny_features[i_centre-cutout_rad:i_centre+cutout_rad+1, j_centre-cutout_rad:j_centre+cutout_rad+1].astype(int)
+            cutout_feature[np.where(cutout_feature!=feature)] = 0
+
+            # Produce cutout of feature map, and determine orientation of feature
+            feature_properties = skimage.measure.regionprops(cutout_feature, intensity_image=cutout)[0]
+            feature_angle = np.rad2deg(feature_properties.orientation)
+
+            # Rotate cutout to allign cell to axis, and add to stack
+            cutout = skimage.transform.rotate(cutout, 360.0-feature_angle, mode='wrap')#np.rot90(cutout, np.floor(feature_angle/90.0))
+            cutout_feature = skimage.transform.rotate(cutout_feature, 360.0-feature_angle, mode='constant', cval=np.nan)#np.rot90(cutout_feature, np.floor(feature_angle/90.0))
             stack[:,:,i] = cutout
 
-        # Make stack coadd
+        # Make stack coadd, adjust it so edge level corresponds to zero, then normalise
         stack_coadd = np.nanmean(stack, axis=2)
+        stack_level = np.nanmedian( np.array([ stack_coadd[0,:], stack_coadd[:,0], stack_coadd[-1,:], stack_coadd[:,-1] ]).flatten() )
+        stack_coadd -= stack_level
+        #stack_coadd /= np.nansum(stack_coadd)
 
-        # Normalise stack, and make edges equal to zero (so it works better as a kernel)
-        stack_edges = np.array([stack_coadd[0,:], stack_coadd[-1,:], stack_coadd[:,0], stack_coadd[:,-1]]).flatten()
-        stack_coadd -= np.nanmedian(stack_edges)
-        stack_coadd /= np.nansum(stack_coadd)
+        # Use stack to perform matched filter on det map, rotating stack through full circle to sample range of orientations
+        match = np.zeros(self.detmap.shape)
+        rot_samples = 36
+        for i in range(0,rot_samples):
+            rot_angle = i * (360.0/float(rot_samples))
+            match += skimage.feature.match_template(self.detmap, skimage.transform.rotate(stack_coadd, rot_angle, mode='wrap'),
+                                                    pad_input=True, mode='reflect')
 
-        # Record stack
+        # Record outputs
         self.canny_stack = stack_coadd
-        #astropy.io.fits.writeto('/home/chris/stack_coadd.fits', stack_coadd, clobber=True)
+        self.matchmap = match
+        #astropy.io.fits.writeto('/home/chris/coadd_stack.fits', stack_coadd.astype(float), clobber=True)
 
 
 
@@ -294,9 +315,9 @@ class Image():
         else:
             canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
             canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
-            area_thresh = int( np.round( 0.5 * np.nanmin(canny_areas) ) )
+            area_thresh = int( np.round( 0.5 * canny_areas_clip[1] ) )
+            #area_thresh = int( np.round( 0.5 * np.nanmin(canny_areas) ) )
             #area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas_clip[1]-canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
-            #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
 
         # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
         if np.isnan(area_thresh):
@@ -309,17 +330,23 @@ class Image():
         bg_map = self.detmap.copy().astype(float)
         if isinstance(bg_mask,np.ndarray):
             bg_map[ np.where(bg_mask>0) ] = np.NaN
-        bg_clip = SigmaClip(bg_map, median=False, sigma_thresh=2.0)
+        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=5.0)
 
         # Background subtract map, and determine segmentation threshold
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 2.5 * bg_clip[0]
+        seg_thresh = 3.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
-        #astropy.io.fits.writeto('/home/chris/b_thresh_seg.fits', seg_map.astype(float), clobber=True)
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
+        #astropy.io.fits.writeto('/home/chris/_thresh_seg.fits', seg_map.astype(float), clobber=True)
+
+        # Put sources through a round of binary opening, to address noisy edges, then relabel
+        open_structure = scipy.ndimage.generate_binary_structure(2,2)
+        seg_map = scipy.ndimage.binary_opening(seg_map, structure=open_structure, iterations=1).astype(float)
+        seg_map = scipy.ndimage.measurements.label(seg_map, structure=open_structure)[0]
         seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
 
         # Record attributes
@@ -333,7 +360,7 @@ class Image():
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
         # Calculate total number of iterations to be performed
-        iter_total = 100 * self.mc_factor
+        iter_total = int( np.round( 250.0 * self.mc_factor ) )
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -348,7 +375,7 @@ class Image():
         self.water_iter = iter_total
         processes = mp.cpu_count()-1
 
-        """# Filter detection map with a Mexican-hat kernel
+        """# Filter detection map
         kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
         self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')"""
 
@@ -384,7 +411,7 @@ class Image():
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
 
         # Calculate total number of iterations to be performed
-        iter_total = 100 * self.mc_factor
+        iter_total = int( np.round( 100.0 * self.mc_factor ) )
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
