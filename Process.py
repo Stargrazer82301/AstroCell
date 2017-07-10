@@ -44,25 +44,58 @@ def ProximatePrune(points, distance):
 
 
 
-def LabelShuffle(label_map_old):
+def LabelShuffle(label_map_old, test=False):
     """ Function that takes a labelled segmented map and generates random labels, for more aesthetically pleasing visualisations """
 
-    # Perform fresh labeling of map, just to be safe
-    label_map_old = scipy.ndimage.measurements.label(label_map_old)[0]
+    # Check that no labels are duplicated
+    for i in range(1,label_map_old.max()):
+        label_map_indv = label_map_old.copy()
+        label_map_indv[np.where(label_map_indv!=i)] = 0
+        label_map_indv_sublabel = scipy.ndimage.measurements.label(label_map_indv, structure=scipy.ndimage.generate_binary_structure(2,2))
+        if label_map_indv_sublabel[1]>1:
+            for i in range(2,label_map_indv_sublabel[1]):
+                label_map_old[ np.where(label_map_indv_sublabel[0] == i) ] = label_map_old.max() + (i-1)
 
     # Find each label in map
     label_list = np.unique(label_map_old)
-    label_shuffle = np.random.permutation(label_list[np.where(label_list>0)])
-    label_map_new = label_map_old.copy()
+    label_list = label_list[np.where(label_list>0)]
+    label_shuffle = np.random.permutation(np.arange(1,label_list.size+1))
 
     # Loop over labels, picking a new label for each
+    label_map_new = np.zeros(label_map_old.shape).astype(int)
     for i in range(1,label_list.shape[0]):
-        label_old = label_list[i]
+        label_old = label_list[i-1]
         label_new = label_list.shape[0] + label_shuffle[i-1]
         label_map_new[np.where(label_map_old==label_old)] = label_new
 
+    # Shift labels so that they start from 1 again
+    if np.where(label_map_new>0)[0].shape[0] > 0:
+        label_shift = np.min( label_map_new[ np.where(label_map_new>0) ] ) - 1
+        label_map_new[ np.where(label_map_new>0) ] -= label_shift
+        label_map_new[ np.where(label_map_new>0) ] += np.nanmax(label_map_new)
+
     # Return shuffled map
     return label_map_new
+
+
+
+def FillHoles(map_in):
+    """ A function for robustly filling holes in labelled segments """
+
+    # Loop over labels in segmentation map (skipping null values)
+    map_out = map_in.copy().astype(int)
+    for i in np.unique(map_in.astype(int)):
+        if i<=0:
+            continue
+
+        # Fill holes withinin this label only
+        map_label = map_in.copy().astype(int)
+        map_label[ np.where(map_label!=i) ] = 0
+        map_label = scipy.ndimage.morphology.binary_fill_holes(map_label.astype(bool))
+        map_out[np.where(map_label==True)] = i
+
+    # Return filled segmentation map
+    return map_out
 
 
 
@@ -76,7 +109,7 @@ def WaterWrapper(Image, seg_map, iter_total):
     n_thresh_seg = int( np.unique(seg_map).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_canny = int( np.unique(Image.canny_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
     n_logdog = int( np.unique(Image.logdog_features).shape[0] * ( seg_map.size / np.where(seg_map>0)[0].shape[0] ) )
-    n_markers = int( 2.5 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
+    n_markers = int( 3.0 * np.nanmax([n_thresh_seg, n_canny, n_logdog]) )
 
     # Generate totally random marker coordinates
     markers = np.random.random(size=(n_markers,2))
@@ -112,9 +145,19 @@ def WaterWrapper(Image, seg_map, iter_total):
     # Remove markers that do not lie within segmented objects
     marker_map[np.where(seg_map==0)] = 0
 
-    # Create mask and invert map
+    # Create mask
     mask_map = np.zeros(seg_map.shape).astype(bool)
     mask_map[np.where(seg_map>0)] = True
+
+    """# If input map specified, select it; otherwise, simply use the det map
+    if in_map==None:
+        in_map = Image.detmap.copy()
+    elif (isinstance(in_map, str)) and (in_map in dir(Image)) and (isinstance(getattr(Image, in_map), np.ndarray)):
+        in_map = getattr(Image, in_map)
+    else:
+        raise Exception('Specified in_map is not an attribute of the provided Image object')"""
+
+    # Select input map, and invert it (as watershed requires 'peaks' to become 'valleys')
     in_map = Image.detmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
 
@@ -125,7 +168,7 @@ def WaterWrapper(Image, seg_map, iter_total):
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
-    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+'; estimated completion time '+str(time_est)+'.')
+    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+' for '+str(Image.name)+' map; estimated completion time '+str(time_est)+'.')
 
     # Clean up, and return output segmentation map
     gc.collect
@@ -184,15 +227,15 @@ def WalkerWrapper(Image, seg_map, iter_total):
     mask_map[np.where(seg_map>0)] = True
     in_map = Image.detmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
-    in_map[np.where(mask_map==False)] = 999
+    #in_map[np.where(mask_map==False)] = 999
 
     # Conduct segmentation
-    out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=15000, mode='cg_mg', tol=0.001,
+    out_map = skimage.segmentation.random_walker(in_map, marker_map, beta=15, mode='cg_mg', tol=0.0025,
                                                       copy=True, multichannel=False, return_full_prob=False, spacing=None)
 
     # Estimate completion time
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp.dir,'Prog_Dir'), iter_total)
-    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+'; estimated completion time '+str(time_est)+'.')
+    print('Monte-Carlo deblending iteration '+str(iter_complete)+' of '+str(iter_total)+' for '+str(Image.name)+' map; estimated completion time '+str(time_est)+'.')
 
     # Clean up, and return output segmentation map
     gc.collect

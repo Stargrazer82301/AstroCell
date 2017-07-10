@@ -103,6 +103,18 @@ class RGB():
 
 
 
+    def RecMCFactor(self, mc_factor):
+        """ Brief method that records what multiplier is to be used to scale number of iterations for Monte-Carlo processes """
+
+        # Record temp dir location attribute to self
+        self.mc_factor = mc_factor
+
+        # Record temp dir location attribute to Image objects
+        for channel in self.iter:
+            channel.mc_factor = mc_factor
+
+
+
     def MakeCoadd(self):
         """ Method that adds an new Image object, that's a coadd of the three channels """
 
@@ -120,6 +132,7 @@ class RGB():
         self.coadd.name = 'coadd'
         self.coadd.temp = self.temp
         self.coadd.parallel = self.parallel
+        self.coadd.mc_factor = self.mc_factor
 
 
 
@@ -227,6 +240,14 @@ class RGB():
         blob_mask[np.where(blob_coadd<=0)] = 0
         self.blob_mask = blob_mask
 
+        # Create per-channel blob masks
+        for i in range(0, len(self.iter_coadd)):
+            channel_blob_coadd = self.canny_cube[:,:,i] + logdog_cube[:,:,i]
+            channel_blob_mask = channel_blob_coadd.copy()
+            channel_blob_mask[np.where(channel_blob_coadd>0)] = 1
+            channel_blob_mask[np.where(channel_blob_coadd<=0)] = 0
+            self.iter_coadd[i].blob_mask = channel_blob_mask
+
 
 
     def DetFilter(self):
@@ -239,7 +260,7 @@ class RGB():
 
         # Decide size of filter to apply, based upon typical size range of Canny cells
         canny_diams_clip = SigmaClip(canny_diams, median=True)
-        kernel_size = np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
+        kernel_size = 0.5 * canny_diams_clip[1] #np.percentile(canny_diams_clip[1]+canny_diams_clip[0], 90.0)
         kernel = astropy.convolution.kernels.Gaussian2DKernel(kernel_size)
 
         # Iterate over each channel, creating and removing background model for each
@@ -247,7 +268,7 @@ class RGB():
 
             # Create background map by excluding Canny cells from image
             canny_bg_map = channel.map.copy().astype(float)
-            canny_bg_map[ np.where(self.blob_mask>0) ] = np.NaN
+            canny_bg_map[ np.where(channel.blob_mask>0) ] = np.NaN
             canny_bg_fill = SigmaClip(canny_bg_map, median=True, sigma_thresh=3.0)[1]
 
             # Also exclude aberantly bright pixels from background map
@@ -264,6 +285,7 @@ class RGB():
 
             # Re-set zero level, and record map to object
             conv_sub -= np.nanmin(conv_sub)
+            channel.bgmap = conv_map
             channel.detmap = conv_sub
             #astropy.io.fits.writeto('/home/chris/conv.fits', conv_map, clobber=True)
 
@@ -273,53 +295,58 @@ class RGB():
         """ Method that combines the segmentations from each individual channel to produces the final segmenation """
 
         # Create segmentation 'cube', holding the segments from each band (NB, the channel index comes first, to simplify FITS output)
-        seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        hyster_seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
         for i in range(0, len(self.iter_coadd)):
-            seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
+            hyster_seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
 
-        # Loop over each segment in the coadd (treating the coadd as the 'base' channel for the segmentation)
-        seg_indices_coadd = np.unique(seg_cube[0,:,:])
-        seg_indices_coadd = seg_indices_coadd[np.where(seg_indices_coadd>0)]
-        for index in seg_indices_coadd:
+        # Create segmentation stack
+        hyster_seg_stack = np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0)
 
-            # Create mask to identify pixels that overlap with base segment
-            index_where = np.where(seg_cube[0,:,:] == index)
-            index_mask = np.zeros([self.cube.shape[0], self.cube.shape[1]]).astype(int)
-            index_mask[index_where] = 1
-            index_seg_cube = seg_cube.copy()
-            index_seg_cube[:, (np.where(index_mask==0))[0], (np.where(index_mask==0))[1]] = 0
+        # Convolve segmentation stack with a small Gaussian kernel (but keep empty pixels as empty)
+        hyster_seg_stack_mask = np.zeros(hyster_seg_stack.shape).astype(int)
+        hyster_seg_stack_mask[np.where(hyster_seg_stack>0)] = 1
+        kernel = astropy.convolution.kernels.Gaussian2DKernel(1.5)
+        hyster_seg_stack = astropy.convolution.convolve_fft(hyster_seg_stack, kernel, interpolate_nan=True, normalize_kernel=True,
+                                                            quiet=True, boundary='reflect', fill_value=0, allow_huge=True)
+        hyster_seg_stack[np.where(hyster_seg_stack_mask==0)] = 0
 
-            # Keep iterating to find other segments that overlap with base segment, and which overlap with them, and so forth, until no more added
-            intersect_count = 0
-            intersect_count_new = np.unique(index_seg_cube).shape[0] - 1
-            intersect_mask = index_mask.copy()
-            intersect_seg_cube = seg_cube.copy()
-            while intersect_count_new > intersect_count:
-                intersect_count = intersect_count_new
+        # Work out combined minimum area threshold
+        thresh_area_list = []
+        [ thresh_area_list.append(channel.thresh_area) for channel in self.iter_coadd ]
+        self.thresh_area = np.nanmin(np.array(thresh_area_list))
 
-                # Loop over each channel, producing version of seg cube containing segments that intersect with the current mask
-                intersect_mask = np.zeros([self.cube.shape[0], self.cube.shape[1]]).astype(int)
-                for i in range(0, len(self.iter_coadd)):
+        # Initiate meta-segmentation as its own (quasi-dummy) Image object
+        self.meta = AstroCell.Image.Image(hyster_seg_stack)
+        self.meta.name = 'meta'
+        self.meta.parallel = self.parallel
+        self.meta.temp = self.temp
+        self.meta.detmap = self.meta.map.copy()
+        self.meta.thresh_area = self.thresh_area
 
-                    # Loop over intersecting indices in this channel (skipping 0 index, for obvious reaosns)
-                    for intersect in np.unique(intersect_seg_cube[i,:,:]):
-                        if intersect == 0:
-                            continue
+        # Create stacked thresholding segmentation map from all 4 channels, to identify every pixel deemed to be 'cell'
+        thresh_seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        for i in range(0, len(self.iter_coadd)):
+            thresh_seg_cube[i,:,:] = self.iter_coadd[i].thresh_segmap
+        thresh_seg_stack = np.sum(thresh_seg_cube.astype(bool).astype(int), axis=0)
+        self.meta.thresh_segmap = thresh_seg_stack
+        #self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
 
-                        # Add to mask all pixels that contain current intersection
-                        intersect_where = np.where(seg_cube[i,:,:] == intersect)
-                        intersect_mask[intersect_where] = 1
+        # Do blob-finding requires for later segmentation
+        self.meta.CannyBlobs(sigma=2.0)
+        self.meta.LogDogBlobs(canny_features=None, force_attribute=True)
 
-                # Assess how many different segments are found within the updated mask region
-                intersect_seg_cube = seg_cube.copy()
-                intersect_seg_cube[:, (np.where(intersect_mask==0))[0], (np.where(intersect_mask==0))[1]] = 0
-                intersect_count_new = np.unique(intersect_seg_cube).shape[0] - 1
+        # Process meta-segmentation using monte-carlo watershed thresholding
+        self.meta_water_iter = 500
+        self.meta.WaterBorders(seg_map=self.meta.thresh_segmap, iter_total=self.meta_water_iter)
+        self.meta.water_border[np.where(self.meta.thresh_segmap==0)] = 0
 
+        # Perform hysteresis thresholding on watershed border map
+        self.meta.DeblendSegment(thresh_lower=0.1, thresh_upper=0.4, meta=True)
 
-
-
-            pdb.set_trace()
-            #astropy.io.fits.writeto('/home/chris/intersect_mask.fits', intersect_mask.astype(float), clobber=True)
+        pdb.set_trace()
+        #astropy.io.fits.writeto('/home/chris/meta_hyster_stack.fits', self.meta.water_border.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/hyster_seg_stack.fits', np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0).astype(float), clobber=True)
 
 
 

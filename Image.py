@@ -1,5 +1,6 @@
 # Import smorgasbord
 import pdb
+import os
 import copy
 import gc
 import multiprocessing as mp
@@ -208,30 +209,59 @@ class Image():
         for i in range(0,len(loop_features)):
             feature = loop_features[i]
 
+            # Reject larger, possibly-blended features
+            if np.where(self.canny_features==feature)[0].shape[0] > np.percentile(canny_areas, 50.0):
+                continue
+
             # Identify centre coords of feature
             feature_centre = scipy.ndimage.measurements.center_of_mass(pad_canny_bin, labels=pad_canny_features, index=feature)
             i_centre, j_centre = int(np.round(feature_centre[0])), int(np.round(feature_centre[1]))
 
-            # Produce cutout centred on feature (rotate it an arbitary number of times?), and insert into stack
+            # Produce cutout centred on feature, for both det map and Canny feature map
             cutout = pad_map[i_centre-cutout_rad:i_centre+cutout_rad+1, j_centre-cutout_rad:j_centre+cutout_rad+1]
-            #cutout = np.rot90( cutout, k=np.random.randint(0, high=4) )
+            cutout_feature = pad_canny_features[i_centre-cutout_rad:i_centre+cutout_rad+1, j_centre-cutout_rad:j_centre+cutout_rad+1].astype(int)
+            cutout_feature[np.where(cutout_feature!=feature)] = 0
+
+            # Produce cutout of feature map, and determine orientation of feature
+            feature_properties = skimage.measure.regionprops(cutout_feature, intensity_image=cutout)[0]
+            feature_angle = np.rad2deg(feature_properties.orientation)
+
+            # Rotate cutout to allign cell to axis, and add to stack
+            cutout = skimage.transform.rotate(cutout, 360.0-feature_angle, mode='wrap')#np.rot90(cutout, np.floor(feature_angle/90.0))
+            cutout_feature = skimage.transform.rotate(cutout_feature, 360.0-feature_angle, mode='constant', cval=np.nan)#np.rot90(cutout_feature, np.floor(feature_angle/90.0))
             stack[:,:,i] = cutout
 
-        # Make stack coadd
+        # Make stack coadd, adjust it so edge level corresponds to zero, then normalise
         stack_coadd = np.nanmean(stack, axis=2)
+        stack_level = np.nanmedian( np.array([ stack_coadd[0,:], stack_coadd[:,0], stack_coadd[-1,:], stack_coadd[:,-1] ]).flatten() )
+        stack_coadd -= stack_level
+        #stack_coadd /= np.nansum(stack_coadd)
 
-        # Normalise stack, and make edges equal to zero (so it works better as a kernel)
-        stack_edges = np.array([stack_coadd[0,:], stack_coadd[-1,:], stack_coadd[:,0], stack_coadd[:,-1]]).flatten()
-        stack_coadd -= np.nanmedian(stack_edges)
-        stack_coadd /= np.nansum(stack_coadd)
 
-        # Record stack
+
+        # Record outputs
         self.canny_stack = stack_coadd
-        #astropy.io.fits.writeto('/home/chris/stack_coadd.fits', stack_coadd, clobber=True)
+        #astropy.io.fits.writeto('/home/chris/coadd_stack.fits', stack_coadd.astype(float), clobber=True)
 
 
 
-    def LogDogBlobs(self, canny_features=None):
+    def CrossCorr(self):
+        """ A method to perform a cross-correlation on the image, using the stacked Canny cells as the target filter """
+
+        # Use stack to perform matched filter on det map, rotating stack through full circle to sample range of orientations
+        cross = np.zeros(self.detmap.shape)
+        rot_samples = 36
+        for i in range(0,rot_samples):
+            rot_angle = i * (360.0/float(rot_samples))
+            cross += skimage.feature.match_template(self.detmap, skimage.transform.rotate(self.canny_stack, rot_angle, mode='wrap'),
+                                                    pad_input=True, mode='reflect')
+
+        # Record output
+        self.crossmap = cross
+
+
+
+    def LogDogBlobs(self, canny_features=None, force_attribute=False):
         """ A method that uses Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to identify which pixels have cells in """
 
         # If canny features map provided, use this; otherwise just use features map for this channel
@@ -276,11 +306,11 @@ class Image():
         blob_features = AstroCell.Process.LabelShuffle(blob_features)
 
         # Return mask
-        if self.parallel:
-            return blob_mask, blob_features
-        else:
+        if force_attribute:
             self.logdog_mask = blob_mask
             self.logdog_features = blob_features
+        else:
+            return blob_mask, blob_features
         #astropy.io.fits.writeto('/home/chris/blob_mask.fits', blob_mask, clobber=True)
 
 
@@ -294,8 +324,9 @@ class Image():
         else:
             canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
             canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
-            area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
-            #canny_diam = 2.0 * np.sqrt(area_thresh/np.pi)
+            area_thresh = int( np.round( 0.5 * canny_areas_clip[1] ) )
+            #area_thresh = int( np.round( 0.5 * np.nanmin(canny_areas) ) )
+            #area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas_clip[1]-canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
 
         # If no features smaller than peak (ie, the modal size is also the smallest size), set this value to be the threshold
         if np.isnan(area_thresh):
@@ -308,17 +339,24 @@ class Image():
         bg_map = self.detmap.copy().astype(float)
         if isinstance(bg_mask,np.ndarray):
             bg_map[ np.where(bg_mask>0) ] = np.NaN
-        bg_clip = SigmaClip(bg_map, median=False, sigma_thresh=2.0)
+        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=5.0)
 
         # Background subtract map, and determine segmentation threshold
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 2.0 * bg_clip[0]
+        seg_thresh = 3.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
-        seg_map = AstroCell.Process.LabelShuffle(seg_map)
+        seg_map = AstroCell.Process.FillHoles(seg_map)
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
+
+        # Put sources through a round of binary opening, to address noisy edges, then relabel
+        open_structure = scipy.ndimage.generate_binary_structure(2,2)
+        seg_map = scipy.ndimage.binary_opening(seg_map, structure=open_structure, iterations=1).astype(float)
+        seg_map = scipy.ndimage.measurements.label(seg_map, structure=open_structure)[0]
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
 
         # Record attributes
         self.thresh_segmap = seg_map
@@ -327,8 +365,11 @@ class Image():
 
 
 
-    def WaterBorders(self, iter_total=500, seg_map=None):
+    def WaterBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
+
+        # Calculate total number of iterations to be performed
+        iter_total = int( np.round( 250.0 * self.mc_factor ) )
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -343,7 +384,7 @@ class Image():
         self.water_iter = iter_total
         processes = mp.cpu_count()-1
 
-        """# Filter detection map with a Mexican-hat kernel
+        """# Filter detection map
         kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
         self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')"""
 
@@ -378,6 +419,9 @@ class Image():
     def WalkerBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
 
+        # Calculate total number of iterations to be performed
+        iter_total = int( np.round( 100.0 * self.mc_factor ) )
+
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
             seg_map = self.thresh_segmap
@@ -388,7 +432,7 @@ class Image():
             return
 
         # Prepare parameters for Monte Carlo segmenations
-        iter_total = 250
+        self.walker_iter = iter_total
         processes = int(0.5*mp.cpu_count())
 
         # Run random iterations in parallel, for speed
@@ -408,6 +452,9 @@ class Image():
         for i in range(0, len(walker_map_list)):
             border_map += skimage.segmentation.find_boundaries(walker_map_list[i], connectivity=2)
 
+        # Neaten border edges
+        border_map[ np.where(self.thresh_segmap==0) ] = 0
+
         # Record watershed output
         del(walker_map_list)
         gc.collect()
@@ -416,32 +463,110 @@ class Image():
 
 
 
-    def DeblendSegment(self):
+    def DeblendSegment(self, thresh_lower=0.2, thresh_upper=0.4, meta=False):
         """ Method that performs segmentation using output of watershed segmentations """
 
         # Perform hysteresis thresholding on this channel's watershed border map
-        hyster_border = AstroCell.Process.HysterThresh(self.water_border.copy(), (0.2*self.water_iter), (0.4*self.water_iter))
+        hyster_border = AstroCell.Process.HysterThresh(self.water_border.copy(), (thresh_lower*self.water_iter), (thresh_upper*self.water_iter))
 
         # Perform segmentation using hysteresis
         hyster_seg_map = np.invert(hyster_border).astype(int)
         hyster_seg_map[ np.where(self.thresh_segmap==0) ] = 0
-        hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map)[0]
+        label_structure = scipy.ndimage.generate_binary_structure(2,1)
+        hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map, structure=label_structure)[0]
 
-        # Conduct binary opening to remove any remaining 'bridges'
+        # Conduct binary opening to remove any remaining 'bridges', and re-apply labels
         open_structure = scipy.ndimage.generate_binary_structure(2,1)
         hyster_seg_map_open = scipy.ndimage.binary_opening(hyster_seg_map, structure=open_structure, iterations=1).astype(float)
         hyster_seg_map_open *= hyster_seg_map
 
-        # Remove spuriously small features, based on having 5 or fewer pixels
+        # If performing meta-segmentation, ensure no pixels are lost in segmentaiton
+        if meta:
+
+            # Identify area that was lost as border pixels (labelling as -1)
+            hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map, structure=label_structure)[0]
+            hyster_seg_map[ np.where( (self.thresh_segmap>0) & (hyster_seg_map==0) ) ] = -1
+
+            # Sort features in order of area
+            hyster_seg_areas = np.array(np.unique(hyster_seg_map, return_counts=True)).transpose()
+            hyster_seg_areas = hyster_seg_areas[ np.where(hyster_seg_areas[:,0]>0)[0], : ]
+            hyster_seg_areas = hyster_seg_areas[ np.argsort(hyster_seg_areas[:,1]), : ]
+
+            # Loop over single-pixel 'dot' features, removing them if they are within a 2-pixel radius of any other labelled features.
+            for k in range(0, hyster_seg_areas.shape[0]):
+                if hyster_seg_areas[k,1] != 1:
+                    continue
+                dot_index = hyster_seg_areas[k,0]
+                dot_where = np.where(hyster_seg_map == dot_index)
+                dot_i, dot_j = dot_where[0][0], dot_where[1][0]
+                for i in range( np.max([dot_i-2,0]), np.min([dot_i+2,hyster_seg_map.shape[0]-1]) ):
+                    for j in range( np.max([dot_j-2,0]), np.min([dot_j+2,hyster_seg_map.shape[1]-1]) ):
+                        if (hyster_seg_map[i,j] > 0) and (hyster_seg_map[i,j] != dot_index):
+                            hyster_seg_map[dot_i,dot_j] = -1
+
+            # Identify and sort surviving features in order of area
+            hyster_seg_areas = np.array(np.unique(hyster_seg_map, return_counts=True)).transpose()
+            hyster_seg_areas = hyster_seg_areas[ np.where(hyster_seg_areas[:,0]>0)[0], : ]
+            hyster_seg_areas = hyster_seg_areas[ np.argsort(hyster_seg_areas[:,1]), : ]
+
+            # Find features that were entirely lost to border pixels, and recover them
+            comb_seg_map = hyster_seg_map.copy()
+            comb_seg_map[np.where(comb_seg_map != 0)] = 1
+            comb_seg_map = scipy.ndimage.measurements.label(comb_seg_map, structure=label_structure)[0]
+            for i in range(1,comb_seg_map.max()):
+                mult_seg_map = comb_seg_map * hyster_seg_map
+                mult_seg_neg = np.where( (comb_seg_map==i) & (mult_seg_map<0) )
+                comb_seg_target = np.where(comb_seg_map==i)
+                if mult_seg_neg[0].shape[0] == comb_seg_target[0].shape[0]:
+                    hyster_seg_map[np.where(comb_seg_map==i)] = hyster_seg_map.max() + 1
+
+            # Commence dilation loop, continuing until all lost pixels have been assigned
+            done_features = []
+            dilate_structure = scipy.ndimage.generate_binary_structure(2,2)
+            while np.where(hyster_seg_map == 0)[0].shape[0]:
+                hyster_seg_map_start = hyster_seg_map.copy()
+
+                # Loop over all features, dilating them in turn (skipping )
+                for i in range(1, hyster_seg_map.max()):
+
+                    # Skip features already noted a having been fully dilated, and non-existant features
+                    if i in done_features:
+                        continue
+                    if np.where(hyster_seg_map==i)[0].shape[0] == 0:
+                        done_features.append(i)
+                        continue
+                    blanck_seg_map = np.zeros(hyster_seg_map.shape)
+                    blanck_seg_map[np.where(hyster_seg_map==i)] = 1
+                    dilate_seg_map = scipy.ndimage.binary_dilation(blanck_seg_map, structure=dilate_structure, iterations=1).astype(int)
+
+                    # Ensure feature only expands into 'valid' pixels, and remains contiguous
+                    dilate_seg_map[ np.where( (dilate_seg_map>0) & (hyster_seg_map>-1) & (hyster_seg_map!=i) ) ] = 0
+                    dilate_seg_map_labelled = scipy.ndimage.measurements.label(dilate_seg_map, structure=scipy.ndimage.generate_binary_structure(2,1))[0]
+                    dilate_seg_map_label = scipy.stats.mode( dilate_seg_map_labelled[np.where(blanck_seg_map==1)] )[0][0]
+                    dilate_seg_map[np.where(dilate_seg_map_labelled!=dilate_seg_map_label)] = 0
+
+                    # If no change observed, record this feature as complete; else update hysteresis segmentation map with dilated feature
+                    if False not in (blanck_seg_map==dilate_seg_map):
+                        done_features.append(i)
+                    else:
+                        hyster_seg_map[np.where(dilate_seg_map==1)] = i
+
+                # Similarly, if no change over whole loop, break out of loop
+                if False not in (hyster_seg_map_start == hyster_seg_map):
+                    break
+
+        # Permutate labels
+        hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map)
+
+        # Remove spuriously small features
         hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
-        hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<=5) ]
+        hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<=self.thresh_area) ]
         hyster_seg_flat = hyster_seg_map.copy().flatten()
         hyster_seg_flat[np.in1d(hyster_seg_flat,hyster_exclude)] = 0
         hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)
 
         # Shuffle labels of hysteresis segmentation map, and record
-        hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map)[0]
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
         self.hyster_segmap = hyster_seg_map.copy()
-        #astropy.io.fits.writeto('/home/chris/hyster_seg_map.fits', hyster_seg_map.astype(float), clobber=True)
+
 

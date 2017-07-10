@@ -57,7 +57,9 @@ if __name__ == '__main__':
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
-    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'#'Histochemial/3100_zeb1/'#'/Flourescant/Liver/APCFLOX1668'#
+    #img_dir = 'Histochemial/3100_zeb1/'
+    img_dir = 'Flourescant/Liver/APCFLOX1668/'
+    #img_dir = 'Histochemial/Mammary/Ref_LO_Specific/'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
@@ -67,12 +69,15 @@ if __name__ == '__main__':
     # Initialise temp directory class
     temp = AstroCell.IO.TempDir(out_dir)
 
+    # State multiplier for Monte-Carlo iterations
+    mc_factor = 1
+
     # Identify and loop over all image files in input directory
     in_files = os.listdir(in_dir)
     in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
     in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
     for in_image in np.random.permutation(in_images):
-
+        """
         # Load in a pre-processed dill file (for testing, to skip reprocessing)
         rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/2198 r2.dj', 'rb' ) )
         #rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/3100_zeb1.dj', 'rb' ) )
@@ -82,6 +87,9 @@ if __name__ == '__main__':
 
         # Record if operating in parallel
         rgb.RecParallel(parallel)
+
+        # Record Monte-Carlo iteration multiplier factor
+        rgb.RecMCFactor(mc_factor)
 
         # Pass TempDir object to RGB and Image objects
         rgb.TempDir(temp)
@@ -117,27 +125,26 @@ if __name__ == '__main__':
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
 
         # Use Monte-Carlo watershed segmentation to find borders between blended cells
-        [ channel.WaterBorders(iter_total=500) for channel in rgb.iter_coadd ]
+        [ channel.WaterBorders() for channel in rgb.iter_coadd ]
 
         # Deblend watershed border maps, to perform segmentations for each band
         [ channel.DeblendSegment() for channel in rgb.iter_coadd ]
-        """
+
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-        """
-        # Save processed RGB object, for later testing use
-        rgb.Dill(dill_dir)
         pdb.set_trace()
-        """
+
+        """# Save processed RGB object, for later testing use
+        rgb.Dill(dill_dir)
+        pdb.set_trace()"""
 
 
 
 
 
 
-        astropy.io.fits.writeto('/home/chris/det_map_coadd.fits', rgb.coadd.detmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/thresh_seg_map_coadd.fits', rgb.c.thresh_segmap, clobber=True)
-        astropy.io.fits.writeto('/home/chris/water_map.fits', rgb.r.water_border, clobber=True)
+
+        astropy.io.fits.writeto('/home/chris/det_map_coadd.fits', rgb.coadd.detmap.astype(float), clobber=True)
 
 
 
