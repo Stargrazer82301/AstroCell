@@ -72,13 +72,14 @@ def LabelShuffle(label_map_old, test=False):
     if np.where(label_map_new>0)[0].shape[0] > 0:
         label_shift = np.min( label_map_new[ np.where(label_map_new>0) ] ) - 1
         label_map_new[ np.where(label_map_new>0) ] -= label_shift
+        label_map_new[ np.where(label_map_new>0) ] += np.nanmax(label_map_new)
 
     # Return shuffled map
     return label_map_new
 
 
 
-def WaterWrapper(Image, seg_map, iter_total):
+def WaterWrapper(Image, in_map, seg_map, iter_total,):
     """ Wrapper around watershed segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with
@@ -124,9 +125,19 @@ def WaterWrapper(Image, seg_map, iter_total):
     # Remove markers that do not lie within segmented objects
     marker_map[np.where(seg_map==0)] = 0
 
-    # Create mask and invert map
+    # Create mask
     mask_map = np.zeros(seg_map.shape).astype(bool)
     mask_map[np.where(seg_map>0)] = True
+
+    """# If input map specified, select it; otherwise, simply use the det map
+    if in_map==None:
+        in_map = Image.detmap.copy()
+    elif (isinstance(in_map, str)) and (in_map in dir(Image)) and (isinstance(getattr(Image, in_map), np.ndarray)):
+        in_map = getattr(Image, in_map)
+    else:
+        raise Exception('Specified in_map is not an attribute of the provided Image object')"""
+
+    # Select input map, and invert it (as watershed requires 'peaks' to become 'valleys')
     in_map = Image.detmap.copy()
     in_map = (-1.0 * in_map) + np.nanmax(in_map)
 
