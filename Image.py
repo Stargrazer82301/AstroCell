@@ -237,18 +237,27 @@ class Image():
         stack_coadd -= stack_level
         #stack_coadd /= np.nansum(stack_coadd)
 
-        # Use stack to perform matched filter on det map, rotating stack through full circle to sample range of orientations
-        match = np.zeros(self.detmap.shape)
-        rot_samples = 36
-        for i in range(0,rot_samples):
-            rot_angle = i * (360.0/float(rot_samples))
-            match += skimage.feature.match_template(self.detmap, skimage.transform.rotate(stack_coadd, rot_angle, mode='wrap'),
-                                                    pad_input=True, mode='reflect')
+
 
         # Record outputs
         self.canny_stack = stack_coadd
-        self.matchmap = match
         #astropy.io.fits.writeto('/home/chris/coadd_stack.fits', stack_coadd.astype(float), clobber=True)
+
+
+
+    def CrossCorr(self):
+        """ A method to perform a cross-correlation on the image, using the stacked Canny cells as the target filter """
+
+        # Use stack to perform matched filter on det map, rotating stack through full circle to sample range of orientations
+        cross = np.zeros(self.detmap.shape)
+        rot_samples = 36
+        for i in range(0,rot_samples):
+            rot_angle = i * (360.0/float(rot_samples))
+            cross += skimage.feature.match_template(self.detmap, skimage.transform.rotate(self.canny_stack, rot_angle, mode='wrap'),
+                                                    pad_input=True, mode='reflect')
+
+        # Record output
+        self.crossmap = cross
 
 
 
