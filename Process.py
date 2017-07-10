@@ -79,7 +79,27 @@ def LabelShuffle(label_map_old, test=False):
 
 
 
-def WaterWrapper(Image, in_map, seg_map, iter_total,):
+def FillHoles(map_in):
+    """ A function for robustly filling holes in labelled segments """
+
+    # Loop over labels in segmentation map (skipping null values)
+    map_out = map_in.copy().astype(int)
+    for i in np.unique(map_in.astype(int)):
+        if i<=0:
+            continue
+
+        # Fill holes withinin this label only
+        map_label = map_in.copy().astype(int)
+        map_label[ np.where(map_label!=i) ] = 0
+        map_label = scipy.ndimage.morphology.binary_fill_holes(map_label.astype(bool))
+        map_out[np.where(map_label==True)] = i
+
+    # Return filled segmentation map
+    return map_out
+
+
+
+def WaterWrapper(Image, seg_map, iter_total):
     """ Wrapper around watershed segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with

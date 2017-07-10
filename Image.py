@@ -349,8 +349,8 @@ class Image():
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
+        seg_map = AstroCell.Process.FillHoles(seg_map)
         seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
-        #astropy.io.fits.writeto('/home/chris/_thresh_seg.fits', seg_map.astype(float), clobber=True)
 
         # Put sources through a round of binary opening, to address noisy edges, then relabel
         open_structure = scipy.ndimage.generate_binary_structure(2,2)
