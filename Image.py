@@ -464,6 +464,15 @@ class Image():
 
 
     def DeblendSegment(self, thresh_lower=0.2, thresh_upper=0.4, meta=False):
+    def CrossHolder(self):
+        """ Creates a 'dummy' Image object, as an attribute of the main Image object, to hold the cross-correlation map for processing """
+
+        self.cross_holder = copy.deepcopy(self)
+        self.cross_holder.map = self.crossmap
+        self.cross_holder.detmap = self.crossmap
+
+
+
         """ Method that performs segmentation using output of watershed segmentations """
 
         # Perform hysteresis thresholding on this channel's watershed border map
