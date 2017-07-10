@@ -369,7 +369,7 @@ class Image():
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
         # Calculate total number of iterations to be performed
-        iter_total = int( np.round( 250.0 * self.mc_factor ) )
+        iter_total = int( np.round( 200.0 * self.mc_factor ) )
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -407,6 +407,9 @@ class Image():
 
         # Neaten border edges
         border_map[ np.where(self.thresh_segmap==0) ] = 0
+
+        # Normalise final map
+        border_map = border_map.astype(float) / float(iter_total)
 
         # Record watershed output
         del(water_map_list)
@@ -454,6 +457,9 @@ class Image():
 
         # Neaten border edges
         border_map[ np.where(self.thresh_segmap==0) ] = 0
+
+        # Normalise final map
+        border_map = border_map.astype(float) / float(iter_total)
 
         # Record watershed output
         del(walker_map_list)
