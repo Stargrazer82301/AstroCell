@@ -210,7 +210,7 @@ class RGB():
 
         # Else if not operating in parallel, do things the straightforward way
         else:
-            [ channel.LogDogBlobs(canny_features=self.coadd.canny_features) for channel in self.iter_coadd ]
+            [ channel.LogDogBlobs(canny_features=self.coadd.canny_features, force_attribute=True) for channel in self.iter_coadd ]
 
 
 
@@ -332,23 +332,23 @@ class RGB():
         self.meta.thresh_segmap = thresh_seg_stack
         #self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
 
-        # Do blob-finding requires for later segmentation
+        # Do blob-finding required for later segmentation
         self.meta.CannyBlobs(sigma=2.0)
         self.meta.LogDogBlobs(canny_features=None, force_attribute=True)
 
-        # Process meta-segmentation using monte-carlo watershed thresholding
-        self.meta_water_iter = 500
-        self.meta.WaterBorders(seg_map=self.meta.thresh_segmap, iter_total=self.meta_water_iter)
+        # Perform meta-segmentation using monte-carlo watershed thresholding
+        self.meta.WaterBorders(seg_map=self.meta.thresh_segmap)
         self.meta.water_border[np.where(self.meta.thresh_segmap==0)] = 0
 
         # Perform hysteresis thresholding on watershed border map
-        self.meta.DeblendSegment(thresh_lower=0.1, thresh_upper=0.4, meta=True)
+        self.meta.DeblendSegment(thresh_lower=0.25, thresh_upper=0.9, meta=True)
 
         pdb.set_trace()
-        #astropy.io.fits.writeto('/home/chris/meta_hyster_stack.fits', self.meta.water_border.astype(float), clobber=True)
-        #astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
-        #astropy.io.fits.writeto('/home/chris/hyster_seg_stack.fits', np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0).astype(float), clobber=True)
-
+        astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.coadd.detmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_bg_map.fits', self.coadd.bgmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_thresh_seg.fits', self.coadd.thresh_segmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/meta_water_border.fits', self.meta.water_border.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
 
 
 

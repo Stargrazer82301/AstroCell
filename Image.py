@@ -237,8 +237,6 @@ class Image():
         stack_coadd -= stack_level
         #stack_coadd /= np.nansum(stack_coadd)
 
-
-
         # Record outputs
         self.canny_stack = stack_coadd
         #astropy.io.fits.writeto('/home/chris/coadd_stack.fits', stack_coadd.astype(float), clobber=True)
@@ -350,11 +348,11 @@ class Image():
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
         seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
-        self.thresh_segmap_unfilled = seg_map.copy()
 
-        # Remove holes in segmentation
+        """# Remove holes in segmentation
+        self.thresh_segmap_unfilled = seg_map.copy()
         seg_map = AstroCell.Process.FillHoles(seg_map)
-        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)"""
 
         # Put sources through a round of binary opening, to address noisy edges, then relabel
         open_structure = scipy.ndimage.generate_binary_structure(2,2)
@@ -473,20 +471,27 @@ class Image():
 
 
 
-    def DeblendSegment(self, thresh_lower=0.2, thresh_upper=0.4, meta=False):
     def CrossHolder(self):
         """ Creates a 'dummy' Image object, as an attribute of the main Image object, to hold the cross-correlation map for processing """
 
         self.cross_holder = copy.deepcopy(self)
         self.cross_holder.map = self.crossmap
         self.cross_holder.detmap = self.crossmap
+        self.cross_holder.mc_factor = 0.2
 
 
 
+    def DeblendSegment(self, thresh_lower=0.5, thresh_upper=0.9, meta=False):
         """ Method that performs segmentation using output of watershed segmentations """
 
+        # Select border map to use for hysteresis segmentation
+        if not meta:
+            hyster_in_map = self.cross_holder.water_border.copy()
+        elif meta:
+            hyster_in_map = self.water_border.copy()
+
         # Perform hysteresis thresholding on this channel's watershed border map
-        hyster_border = AstroCell.Process.HysterThresh(self.water_border.copy(), (thresh_lower*self.water_iter), (thresh_upper*self.water_iter))
+        hyster_border = AstroCell.Process.HysterThresh(hyster_in_map, thresh_lower, thresh_upper)
 
         # Perform segmentation using hysteresis
         hyster_seg_map = np.invert(hyster_border).astype(int)
@@ -579,10 +584,9 @@ class Image():
 
         # Remove spuriously small features
         hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
-        hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<=self.thresh_area) ]
-        hyster_seg_flat = hyster_seg_map.copy().flatten()
-        hyster_seg_flat[np.in1d(hyster_seg_flat,hyster_exclude)] = 0
-        hyster_seg_map = np.reshape(hyster_seg_flat, hyster_seg_map.shape)
+        hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<self.thresh_area) ]
+        for index_exclue in hyster_exclude:
+            hyster_seg_map[np.where(hyster_seg_map==index_exclue)] = 0
 
         # Shuffle labels of hysteresis segmentation map, and record
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)

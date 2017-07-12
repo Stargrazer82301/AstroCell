@@ -58,8 +58,8 @@ if __name__ == '__main__':
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
     #img_dir = 'Histochemial/3100_zeb1'
-    #img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
-    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
+    img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
+    #img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     temp = AstroCell.IO.TempDir(out_dir)
 
     # State multiplier for Monte-Carlo iterations
-    mc_factor = 1
+    mc_factor = 1.0
 
     # Identify and loop over all image files in input directory
     in_files = os.listdir(in_dir)
@@ -130,11 +130,11 @@ if __name__ == '__main__':
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
 
-        # Use Monte-Carlo watershed segmentation to find borders between blended cells
-        [ channel.WaterBorders() for channel in rgb.iter_coadd ]
-
         # Create nested Image objects in each channelto hold cross correlation map for Image prcocessing
         [ channel.CrossHolder() for channel in rgb.iter_coadd ]
+
+        # Use Monte-Carlo watershed segmentation to find borders between blended cells
+        [ channel.cross_holder.WaterBorders() for channel in rgb.iter_coadd ]
 
         # Deblend watershed border maps, to perform segmentations for each band
         [ channel.DeblendSegment() for channel in rgb.iter_coadd ]
