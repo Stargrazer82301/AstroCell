@@ -345,10 +345,14 @@ class Image():
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 3.0 * bg_clip[0]
+        seg_thresh = 2.5 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
+        self.thresh_segmap_unfilled = seg_map.copy()
+
+        # Remove holes in segmentation
         seg_map = AstroCell.Process.FillHoles(seg_map)
         seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
 
