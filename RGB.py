@@ -302,32 +302,33 @@ class RGB():
         # Create segmentation stack
         hyster_seg_stack = np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0)
 
-        # Convolve segmentation stack with a small Gaussian kernel (but keep empty pixels as empty)
-        hyster_seg_stack_mask = np.zeros(hyster_seg_stack.shape).astype(int)
-        hyster_seg_stack_mask[np.where(hyster_seg_stack>0)] = 1
-        kernel = astropy.convolution.kernels.Gaussian2DKernel(1.5)
-        hyster_seg_stack = astropy.convolution.convolve_fft(hyster_seg_stack, kernel, interpolate_nan=True, normalize_kernel=True,
-                                                            quiet=True, boundary='reflect', fill_value=0, allow_huge=True)
-        hyster_seg_stack[np.where(hyster_seg_stack_mask==0)] = 0
-
         # Work out combined minimum area threshold
         thresh_area_list = []
         [ thresh_area_list.append(channel.thresh_area) for channel in self.iter_coadd ]
         self.thresh_area = np.nanmin(np.array(thresh_area_list))
 
-        # Initiate meta-segmentation as its own (quasi-dummy) Image object
-        self.meta = AstroCell.Image.Image(hyster_seg_stack)
-        self.meta.name = 'meta'
-        self.meta.parallel = self.parallel
-        self.meta.temp = self.temp
-        self.meta.detmap = self.meta.map.copy()
-        self.meta.thresh_area = self.thresh_area
+        # Convolve segmentation stack with a small Gaussian kernel (but keep empty pixels as empty)
+        hyster_seg_stack_mask = np.zeros(hyster_seg_stack.shape).astype(int)
+        hyster_seg_stack_mask[np.where(hyster_seg_stack>0)] = 1
+        kernel = astropy.convolution.kernels.Tophat2DKernel(1.5)
+        hyster_seg_stack = astropy.convolution.convolve_fft(hyster_seg_stack, kernel, interpolate_nan=True, normalize_kernel=True,
+                                                            quiet=True, boundary='reflect', fill_value=0, allow_huge=True)
+        hyster_seg_stack[np.where(hyster_seg_stack_mask==0)] = 0
 
         # Create stacked thresholding segmentation map from all 4 channels, to identify every pixel deemed to be 'cell'
         thresh_seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
         for i in range(0, len(self.iter_coadd)):
             thresh_seg_cube[i,:,:] = self.iter_coadd[i].thresh_segmap
         thresh_seg_stack = np.sum(thresh_seg_cube.astype(bool).astype(int), axis=0)
+
+        # Initiate meta-segmentation as its own (quasi-dummy) Image object
+        self.meta = AstroCell.Image.Image(hyster_seg_stack)
+        self.meta.name = 'meta'
+        self.meta.parallel = self.parallel
+        self.meta.mc_factor = self.mc_factor
+        self.meta.temp = self.temp
+        self.meta.detmap = self.meta.map.copy()
+        self.meta.thresh_area = self.thresh_area
         self.meta.thresh_segmap = thresh_seg_stack
         #self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
 
