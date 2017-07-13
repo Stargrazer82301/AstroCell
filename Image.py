@@ -343,7 +343,7 @@ class Image():
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 2.5 * bg_clip[0]
+        seg_thresh = 2.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
@@ -354,11 +354,11 @@ class Image():
         seg_map = AstroCell.Process.FillHoles(seg_map)
         seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)"""
 
-        # Put sources through a round of binary opening, to address noisy edges, then relabel
+        """# Put sources through a round of binary opening, to address noisy edges, then relabel
         open_structure = scipy.ndimage.generate_binary_structure(2,2)
         seg_map = scipy.ndimage.binary_opening(seg_map, structure=open_structure, iterations=1).astype(float)
         seg_map = scipy.ndimage.measurements.label(seg_map, structure=open_structure)[0]
-        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)"""
 
         # Record attributes
         self.thresh_segmap = seg_map
@@ -471,13 +471,13 @@ class Image():
 
 
 
-    def CrossHolder(self):
-        """ Creates a 'dummy' Image object, as an attribute of the main Image object, to hold the cross-correlation map for processing """
+    def DeblendHolder(self, deblend_map):
+        """ Creates a 'dummy' Image object, as an attribute of the main Image object, to hold maps for deblending """
 
-        self.cross_holder = copy.deepcopy(self)
-        self.cross_holder.map = self.crossmap
-        self.cross_holder.detmap = self.crossmap
-        self.cross_holder.mc_factor = 0.2
+        self.deblend_holder = copy.deepcopy(self)
+        #self.deblend_holder.mc_factor = 0.2
+        self.deblend_holder.map = self.deblend_map
+        self.deblend_holder.detmap = self.deblend_map
 
 
 
@@ -486,7 +486,16 @@ class Image():
 
         # Select border map to use for hysteresis segmentation
         if not meta:
-            hyster_in_map = self.cross_holder.water_border.copy()
+            det_norm = self.coadd.detmap - np.nanmin(self.coadd.detmap)
+            det_norm /= np.nanmax(det_norm)
+            cross_norm  = self.coadd.crossmap - self.coadd.crossmap.min()
+            cross_norm /= cross_norm.max()
+            deblend_map = det_norm * cross_norm
+            self.DeblendHolder(deblend_map)
+            self.deblend_holder.WaterBorders()
+            hyster_in_map = self.deblend_holder.water_border.copy()
+
+        # If trying to deblend a meta-segmentation, simply use that
         elif meta:
             hyster_in_map = self.water_border.copy()
 
