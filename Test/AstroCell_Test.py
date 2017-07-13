@@ -57,8 +57,8 @@ if __name__ == '__main__':
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
-    #img_dir = 'Histochemial/3100_zeb1'
-    img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
+    img_dir = 'Histochemial/3100_zeb1'
+    #img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
     #img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')

@@ -341,10 +341,11 @@ class RGB():
         self.meta.water_border[np.where(self.meta.thresh_segmap==0)] = 0
 
         # Perform hysteresis thresholding on watershed border map
-        self.meta.DeblendSegment(thresh_lower=0.25, thresh_upper=0.9, meta=True)
+        self.meta.DeblendSegment(thresh_lower=0.4, thresh_upper=0.9, meta=True)
 
         pdb.set_trace()
         astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.coadd.detmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_cross_map.fits', self.coadd.crossmap.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/coadd_bg_map.fits', self.coadd.bgmap.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/coadd_thresh_seg.fits', self.coadd.thresh_segmap.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/meta_water_border.fits', self.meta.water_border.astype(float), clobber=True)

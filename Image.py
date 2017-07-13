@@ -481,7 +481,7 @@ class Image():
 
 
 
-    def DeblendSegment(self, thresh_lower=0.5, thresh_upper=0.9, meta=False):
+    def DeblendSegment(self, thresh_lower=0.4, thresh_upper=0.9, meta=False):
         """ Method that performs segmentation using output of watershed segmentations """
 
         # Select border map to use for hysteresis segmentation
@@ -581,6 +581,9 @@ class Image():
 
         # Permutate labels
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map)
+
+        # Remove any holes that are entirely contained within individual features
+        hyster_seg_map = AstroCell.Process.FillHoles(hyster_seg_map)
 
         # Remove spuriously small features
         hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
