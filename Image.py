@@ -96,7 +96,7 @@ class Image():
 
         """# Use a convolved version of the input map, with interpolation over NaN pixels, to impute replacement values for NaNs
         kernel = astropy.convolution.kernels.Gaussian2DKernel(5.0)
-        conv_map = astropy.convolution.convolve_fft(out_image, kernel, interpolate_nan=True, normalize_kernel=True, boundary='reflect')
+        conv_map = astropy.convolution.convolve_fft(out_image, kernel, nan_treatment='interpolate', normalize_kernel=True, boundary='reflect')
         out_image[np.where(np.isnan(out_image))] = conv_map[np.where(np.isnan(out_image))]"""
 
         # Use map median to impute replacement value for NaNs
@@ -182,7 +182,7 @@ class Image():
 
 
     def CannyCellStack(self):
-        """ Method (redundant?) that stacks upon positions of identified features, to create a matched filter """
+        """ Method that stacks upon positions of identified features, to create a matched filter """
 
         # Identify segment indices present in map (excluding bakground feature)
         loop_features = list(set(self.canny_features.flatten()))[1:]
@@ -210,7 +210,7 @@ class Image():
             feature = loop_features[i]
 
             # Reject larger, possibly-blended features
-            if np.where(self.canny_features==feature)[0].shape[0] > np.percentile(canny_areas, 50.0):
+            if np.where(self.canny_features==feature)[0].shape[0] > np.percentile(canny_areas, 68.0):
                 continue
 
             # Identify centre coords of feature
@@ -354,11 +354,11 @@ class Image():
         seg_map = AstroCell.Process.FillHoles(seg_map)
         seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)"""
 
-        """# Put sources through a round of binary opening, to address noisy edges, then relabel
-        open_structure = scipy.ndimage.generate_binary_structure(2,2)
+        # Put sources through a round of binary opening, to address noisy edges, then relabel
+        open_structure = scipy.ndimage.generate_binary_structure(2,1)
         seg_map = scipy.ndimage.binary_opening(seg_map, structure=open_structure, iterations=1).astype(float)
         seg_map = scipy.ndimage.measurements.label(seg_map, structure=open_structure)[0]
-        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)"""
+        seg_map = AstroCell.Process.LabelShuffle(seg_map, test=True)
 
         # Record attributes
         self.thresh_segmap = seg_map
@@ -374,7 +374,7 @@ class Image():
         iter_total = int( np.round( 200.0 * self.mc_factor ) )
 
         # If no segment map specified, use map from thesholding segmentation
-        if seg_map==None:
+        if seg_map.__class__ != np.ndarray:
             seg_map = self.thresh_segmap
 
          # If segmentation map contains no segments, return null results
@@ -388,7 +388,7 @@ class Image():
 
         """# Filter detection map
         kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
-        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, interpolate_nan=True, boundary='reflect')"""
+        self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, nan_treatment='interpolate', boundary='reflect')"""
 
         # Run random iterations in parallel, for speed
         water_map_list = []

@@ -13,6 +13,7 @@ import astropy.stats
 import astropy.visualization
 import astropy.visualization.mpl_normalize
 import astropy.io.fits
+import astropy.table
 import photutils
 import skimage.feature
 import PIL.Image
@@ -276,8 +277,8 @@ class RGB():
             canny_bg_map[ np.where(canny_bg_map>(canny_bg_clip[1]+(5.0*canny_bg_clip[0]))) ] = np.NaN
 
             # Smooth background mapusing a Gaussian filter
-            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, interpolate_nan=True, normalize_kernel=True, quiet=True,
-                                                        boundary='reflect', fill_value=canny_bg_fill, allow_huge=True)
+            conv_map = astropy.convolution.convolve_fft(canny_bg_map, kernel, nan_treatment='interpolate', normalize_kernel=True, quiet=True,
+                                                        boundary='wrap', fill_value=canny_bg_fill, allow_huge=True)
             conv_map[ np.where( np.isnan(channel.map)==True ) ] = np.NaN
 
             # Subtract smoothed background map from original image to make detmap
@@ -311,7 +312,7 @@ class RGB():
         hyster_seg_stack_mask = np.zeros(hyster_seg_stack.shape).astype(int)
         hyster_seg_stack_mask[np.where(hyster_seg_stack>0)] = 1
         kernel = astropy.convolution.kernels.Tophat2DKernel(1.5)
-        hyster_seg_stack = astropy.convolution.convolve_fft(hyster_seg_stack, kernel, interpolate_nan=True, normalize_kernel=True,
+        hyster_seg_stack = astropy.convolution.convolve_fft(hyster_seg_stack, kernel, nan_treatment='interpolate', normalize_kernel=True,
                                                             quiet=True, boundary='reflect', fill_value=0, allow_huge=True)
         hyster_seg_stack[np.where(hyster_seg_stack_mask==0)] = 0
 
