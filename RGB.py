@@ -16,6 +16,7 @@ import astropy.io.fits
 import astropy.table
 import photutils
 import skimage.feature
+import sklearn.cluster
 import PIL.Image
 import joblib
 import astrodendro
@@ -344,13 +345,53 @@ class RGB():
         # Perform hysteresis thresholding on watershed border map
         self.meta.DeblendSegment(thresh_lower=0.4, thresh_upper=0.9, meta=True)
 
+        # Record final segmentation map to object
+        self.segmap = self.meta.hyster_segmap
+        """
         pdb.set_trace()
         astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.coadd.detmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_cross_map.fits', self.coadd.crossmap.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/coadd_bg_map.fits', self.coadd.bgmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_cross_map.fits', self.coadd.crossmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_deblend_map.fits', self.coadd.deblend_holder.map.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/coadd_thresh_seg.fits', self.coadd.thresh_segmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_water_border.fits', self.coadd.deblend_holder.water_border.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_hyster_seg.fits', self.coadd.hyster_segmap.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/meta_water_border.fits', self.meta.water_border.astype(float), clobber=True)
         astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
+        """
+
+
+
+    def CellPhotom(self):
+        """ Method that measures the properties of all the segmented cells in the image """
+
+        # Create table object to hold cell properties
+        table_col_names = ('id','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
+        table_col_dtypes = ('S50','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
+        self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
+        data_cols = table_col_names[2:]
+
+        # Loop over segments
+        for s in range(1, int(self.segmap.max())):
+
+            # Skip non-existant segments
+            seg_where = np.where(self.segmap==s)
+            if seg_where[0].shape[0] == 0:
+                continue
+
+            # Calculate and record segment properties
+            self.table.add_row([s,
+                                seg_where[0].shape[0],
+                                np.nansum(self.b.map[seg_where]),
+                                np.nansum(self.g.map[seg_where]),
+                                np.nansum(self.r.map[seg_where]),
+                                np.nansum(self.b.map[seg_where])/seg_where[0].shape[0],
+                                np.nansum(self.g.map[seg_where])/seg_where[0].shape[0],
+                                np.nansum(self.r.map[seg_where])/seg_where[0].shape[0],
+                                np.nansum(self.b.map[seg_where])/np.nansum(self.g.map[seg_where]),
+                                np.nansum(self.b.map[seg_where])/np.nansum(self.r.map[seg_where]),
+                                np.nansum(self.g.map[seg_where])/np.nansum(self.r.map[seg_where])])
+
 
 
 
