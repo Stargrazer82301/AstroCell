@@ -476,20 +476,31 @@ class Image():
 
         self.deblend_holder = copy.deepcopy(self)
         #self.deblend_holder.mc_factor = 0.2
-        self.deblend_holder.map = self.deblend_map
-        self.deblend_holder.detmap = self.deblend_map
+        self.deblend_holder.map = deblend_map
+        self.deblend_holder.detmap = deblend_map
 
 
 
-    def DeblendSegment(self, thresh_lower=0.4, thresh_upper=0.9, meta=False):
+    def DeblendSegment(self, thresh_lower=0.3, thresh_upper=0.9, meta=False):
         """ Method that performs segmentation using output of watershed segmentations """
 
-        # Select border map to use for hysteresis segmentation
+        # If this is not a meta-segmentation, then create a deblending map
         if not meta:
-            det_norm = self.coadd.detmap - np.nanmin(self.coadd.detmap)
+
+            # Create a normalised version of detection map
+            """canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
+            canny_rads = np.sqrt(canny_areas/np.pi)
+            kernel = astropy.convolution.kernels.Tophat2DKernel(0.5*np.median(canny_rads))
+            det_norm = astropy.convolution.convolve_fft(self.detmap, kernel, nan_treatment='interpolate', boundary='reflect')"""
+            det_norm = self.detmap - np.nanmin(self.detmap)
+            det_norm -= np.nanmin(det_norm)
             det_norm /= np.nanmax(det_norm)
-            cross_norm  = self.coadd.crossmap - self.coadd.crossmap.min()
+
+            # Create normalised version of cross-correlation map
+            cross_norm  = self.crossmap - self.crossmap.min()
             cross_norm /= cross_norm.max()
+
+            # Combine into deblending map, construct dummy Image object, and launch watershed thresholding
             deblend_map = det_norm * cross_norm
             self.DeblendHolder(deblend_map)
             self.deblend_holder.WaterBorders()
@@ -603,5 +614,10 @@ class Image():
         # Shuffle labels of hysteresis segmentation map, and record
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
         self.hyster_segmap = hyster_seg_map.copy()
+        """astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.detmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_cross_map.fits', self.crossmap.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_deblend_map.fits', deblend_map.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_hyster_seg.fits', hyster_seg_map.astype(float), clobber=True)
+        astropy.io.fits.writeto('/home/chris/coadd_water_border.fits', hyster_in_map.astype(float), clobber=True)"""
 
 
