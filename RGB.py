@@ -394,9 +394,35 @@ class RGB():
 
 
 
+    def CellClassify(self, cell_colours=None):
+        """ Method that classifies cells based on their location in six-dimensional colour and surface-brightness parameter space """
 
+        # Select only table columns that contain data, convert them into an array for ease of processing
+        data_array = self.table[self.table.data_cols].as_array()
+        data_array = data_array.view((float, len(data_array.dtype.names)))
 
+        # Scale data for clustering analysis
+        data_scaler = sklearn.preprocessing.StandardScaler(copy=False)
+        data_array = data_scaler.fit_transform(data_array)
 
+        # If number os cell colours is pre-stated, use Ward Agglomerative custer-finding algorithm
+        if isinstance(cell_colours, (float,int)):
+            cluster_algorithm = sklearn.cluster.AgglomerativeClustering(n_clusters=cell_colours)
+            cluster_algorithm.fit(data_array)
+
+        # If number of cell colours not pre-stated, then use mean-shift cluster-finding algorithm
+        elif cell_colours == None:
+            cluster_bandwidth = sklearn.cluster.estimate_bandwidth(data_array)
+            cluster_algorithm = sklearn.cluster.MeanShift(bandwidth=cluster_bandwidth, n_jobs=-2)
+
+        # Fit cluster-finding algorthm to data, and record claifications to table
+        cluster_algorithm.fit(data_array)
+        self.table['label'] = cluster_algorithm.labels_
+
+        # Create classification map of image
+        self.labelmap = np.zeros(self.coadd.map.shape)
+        for i in range(0,len(self.table)):
+            self.labelmap[ np.where( self.segmap == int(self.table['id'][i]) ) ] = self.table['label'][i]
 
 
     def OverviewImage(self):
