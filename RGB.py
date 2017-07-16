@@ -346,7 +346,7 @@ class RGB():
         self.meta.DeblendSegment(thresh_lower=0.4, thresh_upper=0.9, meta=True)
 
         # Record final segmentation map to object
-        self.segmap = self.meta.hyster_segmap
+        self.segmap = self.meta.hyster_segmap.astype(int)
         """
         pdb.set_trace()
         astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.coadd.detmap.astype(float), clobber=True)
@@ -369,7 +369,7 @@ class RGB():
         table_col_names = ('id','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
         table_col_dtypes = ('S50','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
         self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
-        data_cols = table_col_names[2:]
+        self.table.data_cols = table_col_names[2:]
 
         # Loop over segments
         for s in range(1, int(self.segmap.max())):
@@ -380,17 +380,17 @@ class RGB():
                 continue
 
             # Calculate and record segment properties
-            self.table.add_row([s,
+            self.table.add_row([int(s),
                                 seg_where[0].shape[0],
-                                np.nansum(self.b.map[seg_where]),
-                                np.nansum(self.g.map[seg_where]),
-                                np.nansum(self.r.map[seg_where]),
-                                np.nansum(self.b.map[seg_where])/seg_where[0].shape[0],
-                                np.nansum(self.g.map[seg_where])/seg_where[0].shape[0],
-                                np.nansum(self.r.map[seg_where])/seg_where[0].shape[0],
-                                np.nansum(self.b.map[seg_where])/np.nansum(self.g.map[seg_where]),
-                                np.nansum(self.b.map[seg_where])/np.nansum(self.r.map[seg_where]),
-                                np.nansum(self.g.map[seg_where])/np.nansum(self.r.map[seg_where])])
+                                np.sum(self.b.map[seg_where]),
+                                np.sum(self.g.map[seg_where]),
+                                np.sum(self.r.map[seg_where]),
+                                np.sum(self.b.map[seg_where])/seg_where[0].shape[0],
+                                np.sum(self.g.map[seg_where])/seg_where[0].shape[0],
+                                np.sum(self.r.map[seg_where])/seg_where[0].shape[0],
+                                np.sum(self.b.map[seg_where])/np.sum(self.g.map[seg_where]),
+                                np.sum(self.b.map[seg_where])/np.sum(self.r.map[seg_where]),
+                                np.sum(self.g.map[seg_where])/np.sum(self.r.map[seg_where])])
 
 
 
