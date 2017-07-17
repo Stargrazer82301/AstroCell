@@ -117,7 +117,7 @@ class Image():
         clip = SigmaClip(self.map, median=True, sigma_thresh=3.0)
 
         # Use noise level to generate atificial noise to add to image
-        canny_iter = 100
+        canny_iter = int(self.mc_factor * 100)
         noise = np.random.normal(0.0, 0.25*clip[0], size=(in_map.shape[0],in_map.shape[1],canny_iter))
 
         # Add each generation of random noise to image in turn, performing Canny edge filtering on each (in parallel with joblist)
@@ -259,7 +259,7 @@ class Image():
 
 
 
-    def LogDogBlobs(self, canny_features=None, force_attribute=False):
+    def LogDogBlobs(self, canny_features=None, force_attribute=False, both_methods=False):
         """ A method that uses Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to identify which pixels have cells in """
 
         # If canny features map provided, use this; otherwise just use features map for this channel
@@ -276,24 +276,23 @@ class Image():
         diams_thresh_min = 0.5 * np.min(diams_clip[2])
         diams_thresh_max = 0.5 * (diams_clip[1] + diams_clip[0])
 
-        # Run LoG extraction
-        log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             num_sigma=25, overlap=0.95, threshold=0.1)
+        # Run LoG extraction, then convert third column of output to radius
+        if both_methods:
+            log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
+                                                 num_sigma=25, overlap=0.95, threshold=0.1)
+            log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
 
         # Run DoG extraction
         dog_blobs = skimage.feature.blob_dog(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
                                              sigma_ratio=1.3, overlap=0.95, threshold=0.1)
 
-        # Convert third column of blob outputs to radii
-        log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
-        dog_blobs[:,2] = dog_blobs[:,2] * np.sqrt(2.0)
-
         # Create mask
         blob_mask = np.zeros(self.map.shape)
 
         # Loop over LoG blobs, adding them to mask
-        for i in range(0, log_blobs.shape[0]):
-            blob_mask += EllipseMask(blob_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
+        if both_methods:
+            for i in range(0, log_blobs.shape[0]):
+                blob_mask += EllipseMask(blob_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
 
         # Loop over DoG blobs, adding them to mask
         for i in range(0, dog_blobs.shape[0]):
@@ -337,13 +336,13 @@ class Image():
         bg_map = self.detmap.copy().astype(float)
         if isinstance(bg_mask,np.ndarray):
             bg_map[ np.where(bg_mask>0) ] = np.NaN
-        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=3.0)
+        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=5.0)
 
         # Background subtract map, and determine segmentation threshold
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 2.0 * bg_clip[0]
+        seg_thresh = 1.5 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
