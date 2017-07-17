@@ -337,7 +337,7 @@ class Image():
         bg_map = self.detmap.copy().astype(float)
         if isinstance(bg_mask,np.ndarray):
             bg_map[ np.where(bg_mask>0) ] = np.NaN
-        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=5.0)
+        bg_clip = SigmaClip(bg_map, median=True, sigma_thresh=3.0)
 
         # Background subtract map, and determine segmentation threshold
         in_map = self.detmap.copy().astype(float)

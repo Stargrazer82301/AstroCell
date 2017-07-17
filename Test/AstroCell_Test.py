@@ -58,8 +58,8 @@ if __name__ == '__main__':
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
     #img_dir = 'Histochemial/3100_zeb1'
-    img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
-    #img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
+    #img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
+    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
@@ -71,6 +71,9 @@ if __name__ == '__main__':
 
     # State multiplier for Monte-Carlo iterations
     mc_factor = 1.0
+
+    # How many different types of cell there are to be counted; if None, then AstroCell tries to work this out by itself
+    cell_colours = None
 
     # Identify and loop over all image files in input directory
     in_files = os.listdir(in_dir)
@@ -129,26 +132,30 @@ if __name__ == '__main__':
 
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
-        """
-        # Create nested Image objects in each channelto hold cross correlation map for Image prcocessing
-        [ channel.CrossHolder() for channel in rgb.iter_coadd ]
 
-        # Use Monte-Carlo watershed segmentation to find borders between blended cells
-        [ channel.cross_holder.WaterBorders() for channel in rgb.iter_coadd ]
-        """
         # Deblend watershed border maps, to perform segmentations for each band
         [ channel.DeblendSegment() for channel in rgb.iter_coadd ]
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-        pdb.set_trace()
 
+        # Perform cell 'photometry'
+        rgb.CellPhotom()
+
+        # Classify cells
+        rgb.CellClassify(cell_colours=cell_colours)
+
+        # Determine actual colours of classified cells
+        rgb.CellColours()
+
+        # Create result overview images
+        rgb.OverviewImages()
+
+        pdb.set_trace()
         """# Save processed RGB object, for later testing use
         rgb.Dill(dill_dir)
         pdb.set_trace()"""
 
-        astropy.io.fits.writeto('/home/chris/det_map_coadd.fits', rgb.coadd.detmap.astype(float), clobber=True)
-        rgb = dill.load( open( '', 'rb' ) )
 
 
 
@@ -156,7 +163,6 @@ if __name__ == '__main__':
 
 # Clean up temporary files
 shutil.rmtree(os.path.join(out_dir,'Temp'))
-#astropy.io.fits.writeto('/home/chris/coadd.fits', coadd, clobber=True)
 
 # Jubiliate
 print('All done!')

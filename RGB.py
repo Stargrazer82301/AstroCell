@@ -6,6 +6,7 @@ import multiprocessing as mp
 import numpy as np
 import scipy.stats
 import matplotlib.pylab as plt
+import matplotlib.image
 import astropy.logger
 astropy.log.setLevel('ERROR')
 import astropy.convolution
@@ -19,7 +20,7 @@ import skimage.feature
 import sklearn.cluster
 import PIL.Image
 import joblib
-import astrodendro
+import colour
 import AstroCell.Process
 import AstroCell.Image
 from ChrisFuncs import SigmaClip
@@ -38,7 +39,8 @@ class RGB():
 
         # Store path for future use
         self.path = in_path
-        self.dir_name = os.path.split(in_path)[0]
+        self.in_dir_name = os.path.split(in_path)[0]
+        self.out_dir_name = os.path.join(self.in_dir_name, 'AstroCell_Output')
         self.file_name = os.path.split(in_path)[1]
 
         # Read in the image file, and convert to array
@@ -66,6 +68,12 @@ class RGB():
         # Record each channel's name as an attribute
         for i in range(0, len(self.iter)):
             self.iter[i].name =  self.channels[i]
+
+
+
+    class Raw(object):
+        """ A dummy class, to allow 'holding' objects to be created """
+        pass
 
 
 
@@ -367,7 +375,7 @@ class RGB():
 
         # Create table object to hold cell properties
         table_col_names = ('id','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
-        table_col_dtypes = ('S50','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
+        table_col_dtypes = ('i8','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
         self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
         self.table.data_cols = table_col_names[2:]
 
@@ -380,7 +388,7 @@ class RGB():
                 continue
 
             # Calculate and record segment properties
-            self.table.add_row([int(s),
+            self.table.add_row([s,
                                 seg_where[0].shape[0],
                                 np.sum(self.b.map[seg_where]),
                                 np.sum(self.g.map[seg_where]),
@@ -415,40 +423,118 @@ class RGB():
             cluster_bandwidth = sklearn.cluster.estimate_bandwidth(data_array)
             cluster_algorithm = sklearn.cluster.MeanShift(bandwidth=cluster_bandwidth, n_jobs=-2)
 
-        # Fit cluster-finding algorthm to data, and record claifications to table
+        # Fit cluster-finding algorthm to data, and record claifications to table and object
         cluster_algorithm.fit(data_array)
         self.table['label'] = cluster_algorithm.labels_
+        self.labels_list =  self.table['label'].tolist()
 
         # Create classification map of image
-        self.labelmap = np.zeros(self.coadd.map.shape)
+        self.labelmap = np.zeros(self.coadd.map.shape) * np.nan
         for i in range(0,len(self.table)):
             self.labelmap[ np.where( self.segmap == int(self.table['id'][i]) ) ] = self.table['label'][i]
 
+        """# Create label maps of image, dilated slightly for display purposes
+        self.labelcube = np.zeros([ np.unique(self.table['label']).size, self.coadd.map.shape[0], self.coadd.map.shape[1] ])"""
 
-    def OverviewImage(self):
 
-        """
-        rand_cmap = photutils.utils.random_cmap(np.nanmax(deblend_map.array) + 1, random_state=12345)
-        norm = astropy.visualization.mpl_normalize.ImageNormalize( stretch=astropy.visualization.AsinhStretch() )
-        map_aspect = float(rgb.coadd.map.shape[1]) / float(rgb.coadd.map.shape[0])
-        fig_x_panes = 3
+
+
+    def CellColours(self):
+        """ Method that works out the colours of classified cells """
+
+        # Define some colours
+        colour_names = ['red','blue','green','brown','black','white']
+        colour_values_rgb = np.array([ [1.0,0.0,0.0], [0.0,1.0,0.0], [0.0,0.0,1.0], [0.5,0.5,0.5], [1.0,1.0,1.0], [0.0,0.0,0.0] ])
+        colour_values_lab = skimage.color.rgb2lab([colour_values_rgb])[0]
+
+        # Loop over labels, in order to work out what colour they actually represent
+        labels_colour_dist = np.zeros([ len(np.unique(self.labels_list)), len(colour_names) ])
+        labels_rgb = np.zeros([ len(np.unique(self.labels_list)), 3 ])
+        labels_rgb_bright = np.zeros([ len(np.unique(self.labels_list)), 3 ])
+        for i in np.unique(self.labels_list):
+
+            # Work out 'typical' rgb colour for pixels in cells assigned this label
+            labels_rgb[i,0] = np.nanmedian( self.r.map[ np.where(self.labelmap==i) ] ) / 255
+            labels_rgb[i,1] = np.nanmedian( self.g.map[ np.where(self.labelmap==i) ] ) / 225
+            labels_rgb[i,2] = np.nanmedian( self.b.map[ np.where(self.labelmap==i) ] ) / 225
+
+            # Convert colour from RGB to HSV (useful to generate bright 'clean' version of colour)
+            label_hsv = skimage.color.rgb2hsv(np.array([[labels_rgb[i,:]]]))[0][0]
+            np.array([label_hsv[0],1,1])
+            labels_rgb_bright[i,:] = skimage.color.hsv2rgb( np.array([[np.array([label_hsv[0],1,1])]]) )[0][0]
+
+            # Now convert to LAB olour (useful, as this has actual perceptual meaning)
+            label_lab = skimage.color.rgb2lab( skimage.color.hsv2rgb( np.array([[label_hsv]]) ) )[0][0]
+
+            # Record colour distance pure from defined colours
+            for j in range(0, len(colour_names)):
+                labels_colour_dist[i,j] = scipy.spatial.distance.euclidean(label_lab, colour_values_lab[j,:]) #scipy.spatial.distance.euclidean(label_rgb, colour_values_rgb[j,:])
+
+        # Record colours
+        self.labels_rgb = labels_rgb
+        self.labels_rgb_bright = labels_rgb_bright
+
+
+
+    def OverviewImages(self):
+        """ Method that produces overview image figure of the results """
+
+        # Use size of image, and number of panes desired, to determine size of figure
+        map_aspect = float(self.coadd.map.shape[1]) / float(self.coadd.map.shape[0])
+        fig_x_panes = 2
         fig_y_panes = 1
         fig_aspect = ( fig_x_panes * map_aspect ) / fig_y_panes
         fig_x_dim = 10.0 * fig_aspect
         fig_y_dim = 10.0
+
+        # Create figure and axes
         fig, axes = plt.subplots(fig_y_panes, fig_x_panes, figsize=(fig_x_dim, fig_y_dim))
-        axes[0].imshow(in_map, origin='lower', cmap='inferno', vmin=np.percentile(in_map,5), vmax=np.percentile(in_map, 95))
-        axes[1].imshow(seg_map, origin='lower', cmap=rand_cmap)
-        axes[2].imshow(deblend_map.array, origin='lower', cmap=rand_cmap)
+
+        # Remove ticks from axes
         [ ax.set_xticklabels([]) for ax in axes ]
         [ ax.set_yticklabels([]) for ax in axes ]
+
+        """# Make axies frames thicket
+        [ [i.set_linewidth(0.1) for i in ax.spines.itervalues()] for ax in axes ]"""
+
+        # In first pane, just plot input image
+        axes[0].imshow( matplotlib.image.imread(self.path) )
+
+        # In second plane, start by plotting a greyscale copy of the image
+        if self.inverted:
+            image_greyscale = -1.0 * ( self.coadd.map - 255.0 )
+        else:
+            image_greyscale = self.coadd.map
+        #axes[1].imshow(image_greyscale, origin='upper', cmap='gray')
+
+        # Generate dilated verison of seg map, for display
+        image_label_dilate = np.zeros(self.segmap.shape) - 1
+        for i in np.unique(self.labels_list):
+            for j in range(0, len(self.table)):
+                if self.table['label'][j] == i:
+                    image_label_indv = np.zeros(self.segmap.shape)
+                    image_label_indv[ np.where(self.segmap==self.table['id'][j]) ] = 1
+                    image_label_indv = scipy.ndimage.morphology.binary_erosion(image_label_indv)
+                    image_label_dilate[ np.where(image_label_indv==1) ] = i
+
+        # Shade in greyscale image regions according to label
+        image_label_dilate[np.where(self.segmap==0)] = -1
+        image_label_colour = skimage.color.label2rgb( image_label_dilate, image=image_greyscale/255, colors=self.labels_rgb_bright.tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
+        axes[1].imshow(image_label_colour, origin='upper')
+
+        """# Plot label border image
+        image_label_border = skimage.segmentation.mark_boundaries(image_greyscale/255, image_label_dilate, color=[1,1,1], outline_color=[0,0,0], mode='inner', background_label=0)
+        axes[2].imshow(image_label_border, origin='upper')"""
+
+        # Set figure to have tight layout, and save to file
         fig.tight_layout()
-        fig.savefig( os.path.join( out_dir, in_image.replace('.bmp','_phoutils_seg.png') ), dpi=400.0 )
-        """
+        fig.savefig( os.path.join( '/home/chris/', '.'.join(self.file_name.split('.')[:-1])+'_output.png' ), dpi=100 ) #self.out_dir_name
+        pdb.set_trace()
+
+        #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
 
-class Raw(object):
-    """ A dummy class, to allow 'holding' objects to be created """
-    pass
+
+
 
