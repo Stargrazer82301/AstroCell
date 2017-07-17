@@ -377,7 +377,8 @@ class RGB():
         table_col_names = ('id','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
         table_col_dtypes = ('i8','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
         self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
-        self.table.data_cols = table_col_names[2:]
+        self.table.data_cols = ('b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
+        self.table.ratio_cols = ('bg_ratio','br_ratio','gr_ratio')
 
         # Loop over segments
         for s in range(1, int(self.segmap.max())):
@@ -406,7 +407,7 @@ class RGB():
         """ Method that classifies cells based on their location in six-dimensional colour and surface-brightness parameter space """
 
         # Select only table columns that contain data, convert them into an array for ease of processing
-        data_array = self.table[self.table.data_cols].as_array()
+        data_array = self.table[self.table.ratio_cols].as_array()
         data_array = data_array.view((float, len(data_array.dtype.names)))
 
         # Scale data for clustering analysis
