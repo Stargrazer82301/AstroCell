@@ -39,9 +39,9 @@ class RGB():
 
         # Store path for future use
         self.path = in_path
-        self.in_dir_name = os.path.split(in_path)[0]
-        self.out_dir_name = os.path.join(self.in_dir_name, 'AstroCell_Output')
-        self.file_name = os.path.split(in_path)[1]
+        self.in_dir = os.path.split(in_path)[0]
+        self.out_dir = os.path.join(self.in_dir, 'AstroCell_Output')
+        self.in_file = os.path.split(in_path)[1]
 
         # Read in the image file, and convert to array
         bitmap_image = PIL.Image.open(in_path)
@@ -81,7 +81,7 @@ class RGB():
         """ A method that dill pickles an RGB object, so that it can re-used later, to save reprocessing (especially during testing) """
 
         # Construct dill pickle's file name
-        dill_file = '.'.join(self.file_name.split('.')[:-1])+'.dj'
+        dill_file = '.'.join(self.in_file.split('.')[:-1])+'.dj'
         dill_path = os.path.join(dill_dir, dill_file)
 
         # Conduct pickling
@@ -429,7 +429,7 @@ class RGB():
         self.labels_list =  self.table['label'].tolist()
 
         # Create classification map of image
-        self.labelmap = np.zeros(self.coadd.map.shape) * np.nan
+        self.labelmap = np.zeros(self.coadd.map.shape) - 1
         for i in range(0,len(self.table)):
             self.labelmap[ np.where( self.segmap == int(self.table['id'][i]) ) ] = self.table['label'][i]
 
@@ -494,18 +494,11 @@ class RGB():
         [ ax.set_xticklabels([]) for ax in axes ]
         [ ax.set_yticklabels([]) for ax in axes ]
 
-        """# Make axies frames thicket
-        [ [i.set_linewidth(0.1) for i in ax.spines.itervalues()] for ax in axes ]"""
-
-        # In first pane, just plot input image
-        axes[0].imshow( matplotlib.image.imread(self.path) )
-
         # In second plane, start by plotting a greyscale copy of the image
         if self.inverted:
             image_greyscale = -1.0 * ( self.coadd.map - 255.0 )
         else:
             image_greyscale = self.coadd.map
-        #axes[1].imshow(image_greyscale, origin='upper', cmap='gray')
 
         # Generate dilated verison of seg map, for display
         image_label_dilate = np.zeros(self.segmap.shape) - 1
@@ -516,21 +509,29 @@ class RGB():
                     image_label_indv[ np.where(self.segmap==self.table['id'][j]) ] = 1
                     image_label_indv = scipy.ndimage.morphology.binary_erosion(image_label_indv)
                     image_label_dilate[ np.where(image_label_indv==1) ] = i
+        image_label_dilate[np.where(self.segmap==0)] = -1
+
+        # Plot label borders onto image, for each label
+        image_label_border = self.cube.copy() / 255
+        for i in np.unique(self.labels_list):
+            image_label_temp = image_label_dilate.copy()
+            image_label_temp[np.where(image_label_temp!=i)] = -1
+            image_label_border = skimage.segmentation.mark_boundaries(image_label_border, image_label_temp,
+                                                                      color=self.labels_rgb_bright[i,:], mode='thick', background_label=-1)
 
         # Shade in greyscale image regions according to label
-        image_label_dilate[np.where(self.segmap==0)] = -1
-        image_label_colour = skimage.color.label2rgb( image_label_dilate, image=image_greyscale/255, colors=self.labels_rgb_bright.tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
-        axes[1].imshow(image_label_colour, origin='upper')
+        image_label_colour = skimage.color.label2rgb(self.labelmap, image=image_label_border,
+                                                     colors=self.labels_rgb_bright.tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
 
-        """# Plot label border image
-        image_label_border = skimage.segmentation.mark_boundaries(image_greyscale/255, image_label_dilate, color=[1,1,1], outline_color=[0,0,0], mode='inner', background_label=0)
-        axes[2].imshow(image_label_border, origin='upper')"""
+        # Plot image panels
+        axes[0].imshow(image_label_border, origin='upper')
+        axes[1].imshow(image_label_colour, origin='upper')
 
         # Set figure to have tight layout, and save to file
         fig.tight_layout()
-        fig.savefig( os.path.join( '/home/chris/', '.'.join(self.file_name.split('.')[:-1])+'_output.png' ), dpi=100 ) #self.out_dir_name
-        pdb.set_trace()
+        fig.savefig( os.path.join( '/home/chris/', '.'.join(self.in_file.split('.')[:-1])+'_output.png' ), dpi=200 ) #self.out_dir
 
+        pdb.set_trace()
         #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
