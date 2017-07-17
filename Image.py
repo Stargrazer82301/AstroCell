@@ -259,7 +259,7 @@ class Image():
 
 
 
-    def LogDogBlobs(self, canny_features=None, force_attribute=False, both_methods=False):
+    def LogDogBlobs(self, canny_features=None, force_attribute=False):
         """ A method that uses Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to identify which pixels have cells in """
 
         # If canny features map provided, use this; otherwise just use features map for this channel
@@ -277,22 +277,20 @@ class Image():
         diams_thresh_max = 0.5 * (diams_clip[1] + diams_clip[0])
 
         # Run LoG extraction, then convert third column of output to radius
-        if both_methods:
-            log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                                 num_sigma=25, overlap=0.95, threshold=0.1)
-            log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
+        log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
+                                             num_sigma=10, overlap=0.95, threshold=0.1)
+        log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
 
-        # Run DoG extraction
+        # Run DoG extraction, then convert third column of output to radius
         dog_blobs = skimage.feature.blob_dog(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             sigma_ratio=1.3, overlap=0.95, threshold=0.1)
+                                             sigma_ratio=1.41, overlap=0.95, threshold=0.1)
 
         # Create mask
         blob_mask = np.zeros(self.map.shape)
 
         # Loop over LoG blobs, adding them to mask
-        if both_methods:
-            for i in range(0, log_blobs.shape[0]):
-                blob_mask += EllipseMask(blob_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
+        for i in range(0, log_blobs.shape[0]):
+            blob_mask += EllipseMask(blob_mask, log_blobs[i,2], 1.0, 0.0, log_blobs[i,0], log_blobs[i,1])
 
         # Loop over DoG blobs, adding them to mask
         for i in range(0, dog_blobs.shape[0]):
