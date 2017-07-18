@@ -439,7 +439,6 @@ class RGB():
 
 
 
-
     def CellColours(self):
         """ Method that works out the colours of classified cells """
 
@@ -477,63 +476,7 @@ class RGB():
 
 
 
-    def OverviewImages(self):
-        """ Method that produces overview image figure of the results """
 
-        # Use size of image, and number of panes desired, to determine size of figure
-        map_aspect = float(self.coadd.map.shape[1]) / float(self.coadd.map.shape[0])
-        fig_x_panes = 2
-        fig_y_panes = 1
-        fig_aspect = ( fig_x_panes * map_aspect ) / fig_y_panes
-        fig_x_dim = 10.0 * fig_aspect
-        fig_y_dim = 10.0
-
-        # Create figure and axes
-        fig, axes = plt.subplots(fig_y_panes, fig_x_panes, figsize=(fig_x_dim, fig_y_dim))
-
-        # Remove ticks from axes
-        [ ax.set_xticklabels([]) for ax in axes ]
-        [ ax.set_yticklabels([]) for ax in axes ]
-
-        # In second plane, start by plotting a greyscale copy of the image
-        if self.inverted:
-            image_greyscale = -1.0 * ( self.coadd.map - 255.0 )
-        else:
-            image_greyscale = self.coadd.map
-
-        # Generate dilated verison of seg map, for display
-        image_label_dilate = np.zeros(self.segmap.shape) - 1
-        for i in np.unique(self.labels_list):
-            for j in range(0, len(self.table)):
-                if self.table['label'][j] == i:
-                    image_label_indv = np.zeros(self.segmap.shape)
-                    image_label_indv[ np.where(self.segmap==self.table['id'][j]) ] = 1
-                    image_label_indv = scipy.ndimage.morphology.binary_erosion(image_label_indv)
-                    image_label_dilate[ np.where(image_label_indv==1) ] = i
-        image_label_dilate[np.where(self.segmap==0)] = -1
-
-        # Plot label borders onto image, for each label
-        image_label_border = self.cube.copy() / 255
-        for i in np.unique(self.labels_list):
-            image_label_temp = image_label_dilate.copy()
-            image_label_temp[np.where(image_label_temp!=i)] = -1
-            image_label_border = skimage.segmentation.mark_boundaries(image_label_border, image_label_temp,
-                                                                      color=self.labels_rgb_bright[i,:], mode='thick', background_label=-1)
-
-        # Shade in greyscale image regions according to label
-        image_label_colour = skimage.color.label2rgb(self.labelmap, image=image_label_border,
-                                                     colors=self.labels_rgb_bright.tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
-
-        # Plot image panels
-        axes[0].imshow(image_label_border, origin='upper')
-        axes[1].imshow(image_label_colour, origin='upper')
-
-        # Set figure to have tight layout, and save to file
-        fig.tight_layout()
-        fig.savefig( os.path.join( '/home/chris/', '.'.join(self.in_file.split('.')[:-1])+'_output.png' ), dpi=200 ) #self.out_dir
-
-        pdb.set_trace()
-        #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
 
