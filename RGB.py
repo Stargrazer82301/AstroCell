@@ -34,13 +34,13 @@ class RGB():
 
 
 
-    def __init__(self, in_path):
+    def __init__(self, in_path, out_dir):
         """ Initialise the RGB object """
 
         # Store path for future use
         self.path = in_path
         self.in_dir = os.path.split(in_path)[0]
-        self.out_dir = os.path.join(self.in_dir, 'AstroCell_Output')
+        self.out_dir = out_dir
         self.in_file = os.path.split(in_path)[1]
 
         # Read in the image file, and convert to array
@@ -90,10 +90,10 @@ class RGB():
 
 
     def TempDir(self, temp):
-        """ Brief method that records loation of current temporary directory to the RGB object and it's constituent Image objects """
+        """ Brief method that creates a temporary directory, and records the path to the RGB object and constituent Image objects """
 
         # Record temp dir location attribute to self
-        self.temp = temp
+        self.temp = os.path.join(self.out_dir,'Temp')
 
         # Record temp dir location attribute to Image objects
         for channel in self.iter:
@@ -104,10 +104,10 @@ class RGB():
     def RecParallel(self, parallel):
         """ Brief method that records whether utilising multiprocessing to the RGB object and it's constituent Image objects """
 
-        # Record temp dir location attribute to self
+        # Record parallel status attribute to self
         self.parallel = parallel
 
-        # Record temp dir location attribute to Image objects
+        # Record parallel status attribute to Image objects
         for channel in self.iter:
             channel.parallel = parallel
 
@@ -116,10 +116,10 @@ class RGB():
     def RecMCFactor(self, mc_factor):
         """ Brief method that records what multiplier is to be used to scale number of iterations for Monte-Carlo processes """
 
-        # Record temp dir location attribute to self
+        # Record MC factor attribute to self
         self.mc_factor = mc_factor
 
-        # Record temp dir location attribute to Image objects
+        # Record MC factor attribute to Image objects
         for channel in self.iter:
             channel.mc_factor = mc_factor
 

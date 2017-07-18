@@ -57,23 +57,24 @@ if __name__ == '__main__':
     # State input directory and create output directory inside it
     test_dir = os.path.join(dropbox, 'Work/Scripts/AstroCell/Test/Test_Data/')
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
-    #img_dir = 'Histochemial/3100_zeb1'
+    img_dir = 'Histochemial/3100_zeb1'
     #img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
-    img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
+    #img_dir = 'Histochemial/Mammary'
+    #img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
     in_dir = os.path.join(test_dir, img_dir)
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if os.path.exists(out_dir):
         shutil.rmtree(out_dir)
     os.mkdir(out_dir)
 
-    # Initialise temp directory class
-    temp = AstroCell.IO.TempDir(out_dir)
-
     # State multiplier for Monte-Carlo iterations
     mc_factor = 1.0
 
     # How many different types of cell there are to be counted; if None, then AstroCell tries to work this out by itself
-    cell_colours = None
+    cell_colours = 2
+
+    # Flag if the images in question have lots of cells with well-resoloved substructure
+    substructure_flag = True
 
     # Identify and loop over all image files in input directory
     in_files = os.listdir(in_dir)
@@ -82,20 +83,16 @@ if __name__ == '__main__':
     for in_image in np.random.permutation(in_images):
         """
         # Load in a pre-processed dill file (for testing, to skip reprocessing)
-        rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/2198 r2.dj', 'rb' ) )
-        #rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/3100_zeb1.dj', 'rb' ) )
+        rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/'+str('.'.join(in_image.split('.')[:-1]))+'.dj', 'rb' ) )
         """
         # Read in raw image, constructing an AstroCell RGB object
-        rgb = AstroCell.RGB.RGB(os.path.join(in_dir, in_image))
+        rgb = AstroCell.RGB.RGB(os.path.join(in_dir,in_image), out_dir)
 
         # Record if operating in parallel
         rgb.RecParallel(parallel)
 
         # Record Monte-Carlo iteration multiplier factor
         rgb.RecMCFactor(mc_factor)
-
-        # Pass TempDir object to RGB and Image objects
-        rgb.TempDir(temp)
 
         # Preserve raw, un-modified copies of data for later reference
         [ channel.Raw() for channel in rgb.iter ]
@@ -149,16 +146,15 @@ if __name__ == '__main__':
         rgb.CellColours()
 
         # Create result overview images
-        rgb.OverviewImages()
+        AstroCell.IO.OverviewImages(rgb)
 
-        pdb.set_trace()
         """# Save processed RGB object, for later testing use
         rgb.Dill(dill_dir)
         pdb.set_trace()"""
 
 
 
-
+pdb.set_trace()
 
 
 # Clean up temporary files
