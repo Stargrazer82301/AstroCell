@@ -88,6 +88,9 @@ if __name__ == '__main__':
         # Read in raw image, constructing an AstroCell RGB object
         rgb = AstroCell.RGB.RGB(os.path.join(in_dir,in_image), out_dir)
 
+        # Create temporary directory in output director, and store its location
+        rgb.TempDir()
+
         # Record if operating in parallel
         rgb.RecParallel(parallel)
 

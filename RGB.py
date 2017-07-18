@@ -1,6 +1,7 @@
 # Import smorgasbord
 import os
 import pdb
+import shutil
 import dill
 import multiprocessing as mp
 import numpy as np
