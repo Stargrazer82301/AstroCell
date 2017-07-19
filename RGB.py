@@ -117,6 +117,9 @@ class RGB():
     def RecParallel(self, parallel):
         """ Brief method that records whether utilising multiprocessing to the RGB object and it's constituent Image objects """
 
+        # Initialise parallel status object
+        parallel = AstroCell.IO.Parallel(parallel)
+
         # Record parallel status attribute to self
         self.parallel = parallel
 
@@ -223,8 +226,8 @@ class RGB():
         """ Wrapper around the optionally-parallel LoG-DoG blob finding Image method """
 
         # If parallel operation requested, process channels simultaneously using joblib
-        if self.parallel:
-            logdog_blob_list = joblib.Parallel( n_jobs=mp.cpu_count()-1 )\
+        if self.parallel.parallel:
+            logdog_blob_list = joblib.Parallel( n_jobs=self.parallel.subthreads )\
                                               ( joblib.delayed( channel.LogDogBlobs )\
                                               ( canny_features=self.coadd.canny_features )\
                                               for channel in self.iter_coadd )

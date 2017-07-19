@@ -122,8 +122,8 @@ class Image():
 
         # Add each generation of random noise to image in turn, performing Canny edge filtering on each (in parallel with joblist)
         canny_stack = np.zeros(noise.shape)
-        if self.parallel:
-            canny_list = joblib.Parallel( n_jobs=mp.cpu_count()-1 )\
+        if self.parallel.parallel:
+            canny_list = joblib.Parallel( n_jobs=self.parallel.subthreads )\
                                         ( joblib.delayed(skimage.feature.canny)\
                                         (in_map+noise[:,:,i], sigma=sigma) \
                                         for i in range(0,noise.shape[2]) )
@@ -367,8 +367,9 @@ class Image():
     def WaterBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
-        # Calculate total number of iterations to be performed
+        # Prepare parameters for Monte Carlo segmenations
         iter_total = int( np.round( 150.0 * self.mc_factor ) )
+        self.water_iter = iter_total
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map.__class__ != np.ndarray:
@@ -379,19 +380,15 @@ class Image():
             self.thresh_segmap = seg_map
             return
 
-        # Prepare parameters for Monte Carlo segmenations
-        self.water_iter = iter_total
-        processes = mp.cpu_count()-1
-
         """# Filter detection map
         kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
         self.hatmap = astropy.convolution.convolve_fft(self.detmap, kernel, nan_treatment='interpolate', boundary='reflect')"""
 
         # Run random iterations in parallel, for speed
         water_map_list = []
-        pool = mp.Pool(processes=processes)
+        pool = mp.Pool(processes=self.parallel.subthreads)
         for i in range(0, iter_total):
-            if self.parallel:
+            if self.parallel.parallel:
                 water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
             else:
                 water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
@@ -421,8 +418,9 @@ class Image():
     def WalkerBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
 
-        # Calculate total number of iterations to be performed
-        iter_total = int( np.round( 100.0 * self.mc_factor ) )
+        # Prepare parameters for Monte Carlo segmenations
+        iter_total = int( np.round( 150.0 * self.mc_factor ) )
+        self.walker_iter = iter_total
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map==None:
@@ -433,15 +431,11 @@ class Image():
             self.thresh_segmap = seg_map
             return
 
-        # Prepare parameters for Monte Carlo segmenations
-        self.walker_iter = iter_total
-        processes = int(0.5*mp.cpu_count())
-
         # Run random iterations in parallel, for speed
         walker_map_list = []
-        pool = mp.Pool(processes=processes)
+        pool = mp.Pool(processes=self.parallel.subthreads)
         for i in range(0, iter_total):
-            if self.parallel:
+            if self.parallel.parallel:
                 walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total,) ) )
             else:
                 walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total) )
@@ -611,10 +605,6 @@ class Image():
         # Shuffle labels of hysteresis segmentation map, and record
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)
         self.hyster_segmap = hyster_seg_map.copy()
-        """astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.detmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_cross_map.fits', self.crossmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_deblend_map.fits', deblend_map.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_hyster_seg.fits', hyster_seg_map.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_water_border.fits', hyster_in_map.astype(float), clobber=True)"""
+        #astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.detmap.astype(float), clobber=True)
 
 
