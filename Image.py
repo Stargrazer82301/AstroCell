@@ -368,7 +368,7 @@ class Image():
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
         # Calculate total number of iterations to be performed
-        iter_total = int( np.round( 200.0 * self.mc_factor ) )
+        iter_total = int( np.round( 150.0 * self.mc_factor ) )
 
         # If no segment map specified, use map from thesholding segmentation
         if seg_map.__class__ != np.ndarray:

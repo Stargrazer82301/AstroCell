@@ -76,12 +76,14 @@ if __name__ == '__main__':
     # Flag if the images in question have lots of cells with well-resoloved substructure
     substructure_flag = True
 
-    # Identify and loop over all image files in input directory
+    # Identify all image files in input directory
     in_files = os.listdir(in_dir)
     in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
     in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
+
+    # Loop over image files, running them through the pipeline in turn
     for in_image in np.random.permutation(in_images):
-        """
+
         # Load in a pre-processed dill file (for testing, to skip reprocessing)
         rgb = dill.load( open( '/home/chris/Data/AstroCell/Dills/'+str('.'.join(in_image.split('.')[:-1]))+'.dj', 'rb' ) )
         """
@@ -144,20 +146,24 @@ if __name__ == '__main__':
 
         # Classify cells
         rgb.CellClassify(cell_colours=cell_colours)
-
+        """
         # Determine actual colours of classified cells
         rgb.CellColours()
 
         # Create result overview images
         AstroCell.IO.OverviewImages(rgb)
 
-        """# Save processed RGB object, for later testing use
+        # Tidy up temporary directory
+        rgb.TempDirTidy()
+
+        # Save processed RGB object, for later testing use
         rgb.Dill(dill_dir)
-        pdb.set_trace()"""
+        pdb.set_trace()
 
 
 
 pdb.set_trace()
+
 
 
 # Clean up temporary files
