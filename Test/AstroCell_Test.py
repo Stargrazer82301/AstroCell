@@ -33,17 +33,18 @@ if location == 'sputnik':
 if location == 'saruman':
     dropbox = '/home/herdata/spx7cjc/Dropbox/'
 
+# Include reloads, to handle any recent changes
+import importlib
+importlib.reload(AstroCell)
+importlib.reload(AstroCell.RGB)
+importlib.reload(AstroCell.Image)
+importlib.reload(AstroCell.IO)
+importlib.reload(AstroCell.Process)
+
 
 
 # Main process
 if __name__ == '__main__':
-
-    # Include reloads, to handle any recent changes
-    import importlib
-    importlib.reload(AstroCell)
-    importlib.reload(AstroCell.RGB)
-    importlib.reload(AstroCell.Image)
-    importlib.reload(AstroCell.IO)
 
     # State input directories
     test_dir = '/home/chris/Dropbox/Work/Scripts/AstroCell/Test/Test_Data/'
@@ -56,32 +57,4 @@ if __name__ == '__main__':
     in_dir = os.path.join(test_dir, img_dir)
 
     # Launch AstroCell
-    AstroCell.Main.Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=None, mc_factor=1.0, dill_dir=None)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Jubiliate
-print('All done!')
+    AstroCell.Main.Run(in_dir=in_dir, cell_colours=2, substructure_flag=False, parallel=True, mc_factor=1.0, dill_dir=dill_dir)

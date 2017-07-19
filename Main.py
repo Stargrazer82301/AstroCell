@@ -17,7 +17,7 @@ plt.ioff()
 
 
 
-def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=None, mc_factor=1.0, dill_dir=False):
+def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc_factor=1.0, dill_dir=False):
     """ Define function that commences AstroCell cell-counting pipeline """
 
     # Create output directory
@@ -25,15 +25,6 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=None, mc
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
         print('[AstroCell] Warning; existing contents of output directory can be overwritten')
-
-    # State multiplier for Monte-Carlo iterations
-    mc_factor = 1.0
-
-    # How many different types of cell there are to be counted; if None, then AstroCell tries to work this out by itself
-    cell_colours = 2
-
-    # Flag if the images in question have lots of cells with well-resoloved substructure
-    substructure_flag = True
 
     # Initialise parallel status object
     parallel = AstroCell.IO.Parallel(parallel)
@@ -50,7 +41,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=None, mc
         rgb = dill.load( open( os.path.join(dill_dir,str('.'.join(in_image.split('.')[:-1]))+'.dj'), 'rb' ) )
         """
         # Initiate AstroCell RGB object
-        rgb = RGB.RGB(os.path.join(in_dir,in_image), out_dir)
+        rgb = AstroCell.RGB.RGB(os.path.join(in_dir,in_image), out_dir)
 
         # Create temporary directory inside output directory, and store its location
         rgb.TempDir()
