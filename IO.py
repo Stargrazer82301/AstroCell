@@ -40,8 +40,8 @@ def OverviewImages(RGB):
 
     # Use size of image, and number of panes desired, to determine size of figure
     map_aspect = float(RGB.coadd.map.shape[1]) / float(RGB.coadd.map.shape[0])
-    fig_x_panes = 2
-    fig_y_panes = 1
+    fig_x_panes = 1
+    fig_y_panes = 2
     fig_aspect = ( fig_x_panes * map_aspect ) / fig_y_panes
     fig_x_dim = 10.0 * fig_aspect
     fig_y_dim = 10.0
@@ -49,9 +49,12 @@ def OverviewImages(RGB):
     # Create figure and axes
     fig, axes = plt.subplots(fig_y_panes, fig_x_panes, figsize=(fig_x_dim, fig_y_dim))
 
-    # Remove ticks from axes
+    # Remove ticks and frames from axes
     [ ax.set_xticklabels([]) for ax in axes ]
     [ ax.set_yticklabels([]) for ax in axes ]
+    [ ax.axhline(linewidth=5, color='black') for ax in axes ]
+    [ ax.axvline(linewidth=5, color='black') for ax in axes ]
+    [ ax.tick_params(axis='both', which='both', bottom='off', top='off', left='off', right='off') for ax in axes ]
 
     # Generate dilated verison of seg map, for display
     image_label_dilate = np.zeros(RGB.segmap.shape) - 1
@@ -80,11 +83,9 @@ def OverviewImages(RGB):
     axes[0].imshow(image_label_border, origin='upper')
     axes[1].imshow(image_label_colour, origin='upper')
 
-    # Set figure to have tight layout, and save to file
+    # Set figure to have tight layout, remove axis frames, and save to file
     fig.tight_layout()
     fig.savefig( os.path.join( '/home/chris/', '.'.join(RGB.in_file.split('.')[:-1])+'_output.png' ), dpi=200 ) #RGB.out_dir
-
-    pdb.set_trace()
     #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
