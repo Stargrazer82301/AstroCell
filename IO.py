@@ -36,6 +36,30 @@ def LoadRGB(in_path):
 
 
 
+class Parallel():
+    """ Class that stores whether, and what kind, of parallel operation is desired """
+
+
+
+    def __init__(self, parallel):
+        """ Initialise the Parallel object """
+
+        # Parse and record parallel request information
+        if parallel == False:
+            self.parallel = False
+            self.threads = 1
+            self.subthreads = 1
+        elif isinstance(parallel,float) or isinstance(parallel,float):
+            self.threads = 1
+            self.parallel = True
+            self.subthreads = int(parallel)
+        elif parallel == None:
+            self.threads = 1
+            self.parallel = True
+            self.subthreads = mp.cpu_count()-1
+
+
+
 def OverviewImages(RGB):
     """ Method that produces overview image figure of the results """
 

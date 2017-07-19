@@ -117,9 +117,6 @@ class RGB():
     def RecParallel(self, parallel):
         """ Brief method that records whether utilising multiprocessing to the RGB object and it's constituent Image objects """
 
-        # Initialise parallel status object
-        parallel = AstroCell.IO.Parallel(parallel)
-
         # Record parallel status attribute to self
         self.parallel = parallel
 
