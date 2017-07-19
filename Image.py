@@ -184,6 +184,10 @@ class Image():
     def CannyCellStack(self):
         """ Method that stacks upon positions of identified features, to create a matched filter """
 
+        # Do not proceed if no Canny features were detected in this channel
+        if not self.canny_features.max() > 0:
+            return None
+
         # Identify segment indices present in map (excluding bakground feature)
         loop_features = list(set(self.canny_features.flatten()))[1:]
 
@@ -239,12 +243,16 @@ class Image():
 
         # Record outputs
         self.canny_stack = stack_coadd
-        #astropy.io.fits.writeto('/home/chris/coadd_stack.fits', stack_coadd.astype(float), clobber=True)
+        #astropy.io.fits.writeto('/home/chris/coadd_canny_stack.fits', self.canny_stack.astype(float), clobber=True)
 
 
 
     def CrossCorr(self):
         """ A method to perform a cross-correlation on the image, using the stacked Canny cells as the target filter """
+
+        # Do not proceed if no Canny features were detected in this channel
+        if not self.canny_features.max() > 0:
+            return None
 
         # Use stack to perform matched filter on det map, rotating stack through full circle to sample range of orientations
         cross = np.zeros(self.detmap.shape)
@@ -340,7 +348,7 @@ class Image():
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 1.5 * bg_clip[0]
+        seg_thresh = 1.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
