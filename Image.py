@@ -252,6 +252,7 @@ class Image():
 
         # Do not proceed if no Canny features were detected in this channel
         if not self.canny_features.max() > 0:
+            self.crossmap = np.ones(self.map.shape).astype(float)
             return None
 
         # Use stack to perform matched filter on det map, rotating stack through full circle to sample range of orientations
@@ -286,12 +287,12 @@ class Image():
 
         # Run LoG extraction, then convert third column of output to radius
         log_blobs = skimage.feature.blob_log(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             num_sigma=10, overlap=0.95, threshold=0.1)
+                                             num_sigma=15, overlap=0.95, threshold=0.1)
         log_blobs[:,2] = log_blobs[:,2] * np.sqrt(2.0)
 
         # Run DoG extraction, then convert third column of output to radius
         dog_blobs = skimage.feature.blob_dog(self.map.copy(), min_sigma=diams_thresh_min, max_sigma=diams_thresh_max,
-                                             sigma_ratio=1.41, overlap=0.95, threshold=0.1)
+                                             sigma_ratio=1.3, overlap=0.95, threshold=0.1)
 
         # Create mask
         blob_mask = np.zeros(self.map.shape)
