@@ -90,15 +90,27 @@ class RGB():
 
 
 
-    def TempDir(self, temp):
+    def TempDir(self):
         """ Brief method that creates a temporary directory, and records the path to the RGB object and constituent Image objects """
 
         # Record temp dir location attribute to self
-        self.temp = os.path.join(self.out_dir,'Temp')
+        self.temp_dir = os.path.join(self.out_dir,'Temp')
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+        os.mkdir(self.temp_dir)
 
         # Record temp dir location attribute to Image objects
         for channel in self.iter:
-            channel.temp = temp
+            channel.temp_dir = self.temp_dir
+
+
+
+    def TempDirTidy(self):
+        """ Method that deletes temporary directory at end of processing """
+
+        # Record temp dir location attribute to self
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
 
 
 
@@ -141,7 +153,7 @@ class RGB():
 
         # Record name of coadd channel, location of temp dir, and parallelisation
         self.coadd.name = 'coadd'
-        self.coadd.temp = self.temp
+        self.coadd.temp_dir = self.temp_dir
         self.coadd.parallel = self.parallel
         self.coadd.mc_factor = self.mc_factor
 
@@ -337,7 +349,7 @@ class RGB():
         self.meta.name = 'meta'
         self.meta.parallel = self.parallel
         self.meta.mc_factor = self.mc_factor
-        self.meta.temp = self.temp
+        self.meta.temp_dir = self.temp_dir
         self.meta.detmap = self.meta.map.copy()
         self.meta.thresh_area = self.thresh_area
         self.meta.thresh_segmap = thresh_seg_stack
@@ -375,23 +387,25 @@ class RGB():
         """ Method that measures the properties of all the segmented cells in the image """
 
         # Create table object to hold cell properties
-        table_col_names = ('id','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
-        table_col_dtypes = ('i8','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
+        table_col_names = ('id','i_coord','j_coord','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
+        table_col_dtypes = ('i8','i8','i8','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
         self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
         self.table.data_cols = ('b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
         self.table.ratio_cols = ('bg_ratio','br_ratio','gr_ratio')
 
         # Loop over segments
-        for s in range(1, int(self.segmap.max())):
+        for i in range(1, int(self.segmap.max())):
 
             # Skip non-existant segments
-            seg_where = np.where(self.segmap==s)
+            seg_where = np.where(self.segmap==i)
             if seg_where[0].shape[0] == 0:
                 continue
 
             # Calculate and record segment properties
-            self.table.add_row([s,
+            self.table.add_row([i,
                                 seg_where[0].shape[0],
+                                scipy.ndimage.measurements.center_of_mass(self.segmap, labels=self.segmap, index=i)[0],
+                                scipy.ndimage.measurements.center_of_mass(self.segmap, labels=self.segmap, index=i)[1],
                                 np.sum(self.b.map[seg_where]),
                                 np.sum(self.g.map[seg_where]),
                                 np.sum(self.r.map[seg_where]),
@@ -455,9 +469,9 @@ class RGB():
         for i in np.unique(self.labels_list):
 
             # Work out 'typical' rgb colour for pixels in cells assigned this label
-            labels_rgb[i,0] = np.nanmedian( self.r.map[ np.where(self.labelmap==i) ] ) / 255
-            labels_rgb[i,1] = np.nanmedian( self.g.map[ np.where(self.labelmap==i) ] ) / 225
-            labels_rgb[i,2] = np.nanmedian( self.b.map[ np.where(self.labelmap==i) ] ) / 225
+            labels_rgb[i,0] = np.nanmedian( self.cube[:,:,0][ np.where(self.labelmap==i) ] ) / 255
+            labels_rgb[i,1] = np.nanmedian( self.cube[:,:,1][ np.where(self.labelmap==i) ] ) / 225
+            labels_rgb[i,2] = np.nanmedian( self.cube[:,:,2][ np.where(self.labelmap==i) ] ) / 225
 
             # Convert colour from RGB to HSV (useful to generate bright 'clean' version of colour)
             label_hsv = skimage.color.rgb2hsv(np.array([[labels_rgb[i,:]]]))[0][0]
