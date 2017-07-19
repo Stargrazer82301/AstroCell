@@ -72,12 +72,6 @@ class RGB():
 
 
 
-    class Raw(object):
-        """ A dummy class, to allow 'holding' objects to be created """
-        pass
-
-
-
     def Dill(self, dill_dir):
         """ A method that dill pickles an RGB object, so that it can re-used later, to save reprocessing (especially during testing) """
 
@@ -122,7 +116,7 @@ class RGB():
 
         # Record parallel status attribute to Image objects
         for channel in self.iter:
-            channel.parallel = parallel
+            channel.parallel = self.parallel
 
 
 

@@ -50,12 +50,12 @@ class Parallel():
             self.threads = 1
             self.subthreads = 1
         elif isinstance(parallel,float) or isinstance(parallel,float):
-            self.threads = 1
             self.parallel = True
+            self.threads = 1
             self.subthreads = int(parallel)
-        elif parallel == None:
-            self.threads = 1
+        elif parallel == True:
             self.parallel = True
+            self.threads = 1
             self.subthreads = mp.cpu_count()-1
 
 
