@@ -386,7 +386,7 @@ class Image():
 
          # If segmentation map contains no segments, return null results
         if np.max(seg_map) == 0:
-            self.water_border = np.zeros(self.map.shape)
+            self.water_border = np.ones(self.map.shape).astype(float)
             return None
 
         """# Filter detection map
@@ -437,7 +437,7 @@ class Image():
 
          # If segmentation map contains no segments, return null results
         if np.max(seg_map) == 0:
-            self.walker_border = np.zeros(self.map.shape)
+            self.walker_border = np.ones(self.map.shape).astype(float)
             return None
 
         # Run random iterations in parallel, for speed
@@ -502,7 +502,6 @@ class Image():
 
             # Combine into deblending map, construct dummy Image object, and launch watershed thresholding
             deblend_map = det_norm * cross_norm
-            pdb.set_trace()
             self.DeblendHolder(deblend_map)
             self.deblend_holder.WaterBorders()
             hyster_in_map = self.deblend_holder.water_border.copy()

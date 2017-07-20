@@ -87,7 +87,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
-
+        rgb.r.DeblendSegment()
         # Deblend watershed border maps, to perform segmentations for each band
         [ channel.DeblendSegment() for channel in rgb.iter_coadd ]
 
