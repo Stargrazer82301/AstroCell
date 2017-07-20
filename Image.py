@@ -386,8 +386,8 @@ class Image():
 
          # If segmentation map contains no segments, return null results
         if np.max(seg_map) == 0:
-            self.thresh_segmap = seg_map
-            return
+            self.water_border = np.zeros(self.map.shape)
+            return None
 
         """# Filter detection map
         kernel = astropy.convolution.kernels.Tophat2DKernel(2.0)
@@ -437,8 +437,8 @@ class Image():
 
          # If segmentation map contains no segments, return null results
         if np.max(seg_map) == 0:
-            self.thresh_segmap = seg_map
-            return
+            self.walker_border = np.zeros(self.map.shape)
+            return None
 
         # Run random iterations in parallel, for speed
         walker_map_list = []
@@ -502,6 +502,7 @@ class Image():
 
             # Combine into deblending map, construct dummy Image object, and launch watershed thresholding
             deblend_map = det_norm * cross_norm
+            pdb.set_trace()
             self.DeblendHolder(deblend_map)
             self.deblend_holder.WaterBorders()
             hyster_in_map = self.deblend_holder.water_border.copy()
