@@ -344,7 +344,7 @@ class RGB():
         # Work out combined minimum area threshold
         thresh_area_list = []
         [ thresh_area_list.append(channel.thresh_area) for channel in self.iter_coadd ]
-        self.thresh_area = np.nanmin(np.array(thresh_area_list))
+        self.thresh_area = self.coadd.thresh_area#np.nanmin(np.array(thresh_area_list))
 
         # Convolve segmentation stack with a small Gaussian kernel (but keep empty pixels as empty)
         hyster_seg_stack_mask = np.zeros(hyster_seg_stack.shape).astype(int)
