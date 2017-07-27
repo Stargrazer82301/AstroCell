@@ -4,6 +4,7 @@ import sys
 import os
 import shutil
 import warnings
+warnings.filterwarnings("ignore")
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
@@ -71,8 +72,13 @@ def OutFilePrep(out_dir, cell_colours):
     elif cell_colours == None:
         table_header += '\n'
 
+    # Remove any pre-existing output table file
+    table_file_path = os.path.join(out_dir, 'AstroCell_Results.txt')
+    if os.path.exists(table_file_path):
+        os.remove(table_file_path)
+
     # Open output table file, write header, then close file
-    table_file = open( os.path.join(out_dir, 'AstroCell_Results.txt'), 'a')
+    table_file = open( table_file_path, 'a')
     table_file.write(table_header)
     table_file.close()
 
