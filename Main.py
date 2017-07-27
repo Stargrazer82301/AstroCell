@@ -44,12 +44,9 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # If testing, load in a pre-processed dill file (to skip uncessary reprocessing)
         rgb = dill.load( open( os.path.join(dill_dir,str('.'.join(in_image.split('.')[:-1]))+'.dj'), 'rb' ) )
-        """
+
         # Initiate AstroCell RGB object
         rgb = AstroCell.RGB.RGB(os.path.join(in_dir,in_image), out_dir)
-
-        # Create temporary directory inside output directory, and store its location
-        rgb.TempDir()
 
         # Record verbosity
         rgb.RecVerbose(verbose)
@@ -59,6 +56,9 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Record Monte-Carlo iteration multiplier factor
         rgb.RecMCFactor(mc_factor)
+
+        # Create temporary directory inside output directory, and store its location
+        rgb.TempDir()
 
         # Preserve raw, un-modified copies of data for later reference
         [ channel.Raw() for channel in rgb.iter ]
@@ -101,7 +101,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-        """
+
         # Perform cell 'photometry'
         rgb.CellPhotom()
 
@@ -110,6 +110,9 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Determine actual colours of classified cells
         rgb.CellColours()
+
+        # Save results to output file
+        rgb.OutFileRecord()
 
         # Create result overview images
         rgb.OverviewImages()
@@ -120,5 +123,10 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
         # Save processed RGB object, for later testing use
         if isinstance(dill_dir, str): rgb.Dill(dill_dir)
         pdb.set_trace()
+
+    # Tidy up output file, to account for line-length inconsistencies in case of
+
+
     # Report completion
-    print('[AstroCell] Processing of all images completed.')
+    if verbose:
+        print('[AstroCell] Processing of all images completed.')

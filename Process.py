@@ -262,7 +262,7 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose):
     if iter_complete == 1:
         if verbose:
             print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending....')
-    else:
+    elif iter_complete == iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now

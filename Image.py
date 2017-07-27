@@ -3,6 +3,8 @@ import pdb
 import os
 import copy
 import gc
+import warnings
+warnings.filterwarnings("ignore")
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
@@ -398,9 +400,9 @@ class Image():
         pool = mp.Pool(processes=self.parallel.subthreads)
         for i in range(0, iter_total):
             if self.parallel.parallel:
-                water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total,) ) )
+                water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total, self.verbose,) ) )
             else:
-                water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total) )
+                water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose) )
         pool.close()
         pool.join()
         water_map_list = [output.get() for output in water_map_list]
@@ -445,9 +447,9 @@ class Image():
         pool = mp.Pool(processes=self.parallel.subthreads)
         for i in range(0, iter_total):
             if self.parallel.parallel:
-                walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total,) ) )
+                walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total, self.verbose,) ) )
             else:
-                walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total) )
+                walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose) )
         pool.close()
         pool.join()
         walker_map_list = [output.get() for output in walker_map_list]
