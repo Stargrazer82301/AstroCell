@@ -3,6 +3,8 @@ import os
 import pdb
 import shutil
 import dill
+import warnings
+warnings.filterwarnings("ignore")
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
@@ -21,7 +23,7 @@ import skimage.feature
 import sklearn.cluster
 import PIL.Image
 import joblib
-import colour
+import webcolors
 import AstroCell.Process
 import AstroCell.Image
 from ChrisFuncs import SigmaClip
@@ -36,13 +38,16 @@ class RGB():
 
 
     def __init__(self, in_path, out_dir):
-        """ Initialise the RGB object """
 
+        """ Initialise the RGB object """
         # Store path for future use
         self.path = in_path
         self.in_dir = os.path.split(in_path)[0]
         self.out_dir = out_dir
         self.in_file = os.path.split(in_path)[1]
+
+        # Report processing started for this image
+        self.id = self.in_file.replace(' ','_')
 
         # Read in the image file, and convert to array
         bitmap_image = PIL.Image.open(in_path)
@@ -163,9 +168,10 @@ class RGB():
 
         # Record name of coadd channel, location of temp dir, and parallelisation
         self.coadd.name = 'coadd'
-        self.coadd.temp_dir = self.temp_dir
+        self.coadd.verbose = self.verbose
         self.coadd.parallel = self.parallel
         self.coadd.mc_factor = self.mc_factor
+        self.coadd.temp_dir = self.temp_dir
 
 
 
@@ -357,6 +363,7 @@ class RGB():
         # Initiate meta-segmentation as its own (quasi-dummy) Image object
         self.meta = AstroCell.Image.Image(hyster_seg_stack)
         self.meta.name = 'meta'
+        self.meta.verbose = self.verbose
         self.meta.parallel = self.parallel
         self.meta.mc_factor = self.mc_factor
         self.meta.temp_dir = self.temp_dir
@@ -378,18 +385,6 @@ class RGB():
 
         # Record final segmentation map to object
         self.segmap = self.meta.hyster_segmap.astype(int)
-        """
-        pdb.set_trace()
-        astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.coadd.detmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_bg_map.fits', self.coadd.bgmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_cross_map.fits', self.coadd.crossmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_deblend_map.fits', self.coadd.deblend_holder.map.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_thresh_seg.fits', self.coadd.thresh_segmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_water_border.fits', self.coadd.deblend_holder.water_border.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/coadd_hyster_seg.fits', self.coadd.hyster_segmap.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/meta_water_border.fits', self.meta.water_border.astype(float), clobber=True)
-        astropy.io.fits.writeto('/home/chris/meta_seg_map.fits', self.meta.hyster_segmap.astype(float), clobber=True)
-        """
 
 
 
@@ -456,6 +451,13 @@ class RGB():
         cluster_algorithm.fit(data_array)
         self.table['label'] = cluster_algorithm.labels_
         self.labels_list =  self.table['label'].tolist()
+        self.labels = np.unique(self.labels_list)
+
+        # Record label counts
+        self.labels_counts = []
+        for i in self.labels:
+            self.labels_counts.append(np.array(self.labels_list)[ np.where( np.array(self.labels_list) == self.labels[i] ) ].size)
+        self.labels_counts = np.array(self.labels_counts).astype(int)
 
         # Create classification map of image
         self.labelmap = np.zeros(self.coadd.map.shape) - 1
@@ -470,16 +472,32 @@ class RGB():
     def CellColours(self):
         """ Method that works out the colours of classified cells """
 
-        # Define some colours
-        colour_names = ['red','blue','green','brown','black','white']
-        colour_values_rgb = np.array([ [1.0,0.0,0.0], [0.0,1.0,0.0], [0.0,0.0,1.0], [0.5,0.5,0.5], [1.0,1.0,1.0], [0.0,0.0,0.0] ])
-        colour_values_lab = skimage.color.rgb2lab([colour_values_rgb])[0]
+        # Take reference colour names from webcolors package, and convert to hsv to obtain hue
+        wc_colours_hex = webcolors.css3_names_to_hex
+        wc_colours_names = np.array(list(webcolors.css3_names_to_hex.keys()))
+        wc_colours_hsv = np.zeros([ len(wc_colours_hex.keys()), 3 ])
+        wc_colours_lab = np.zeros([ len(wc_colours_hex.keys()), 3 ])
+        for i in range(0, len(wc_colours_names)):
+            wc_colour_hex = wc_colours_hex[wc_colours_names[i]]
+            wc_colour_rgb = np.array(list(webcolors.hex_to_rgb(wc_colour_hex)))
+            wc_colours_hsv[i,:] = skimage.color.rgb2hsv([[wc_colour_rgb]])[0][0]
+            wc_colours_lab[i,:] = skimage.color.rgb2lab([[wc_colours_hsv[i,:]]])[0][0]
+
+        # Sort refence colours in order of hue
+        wc_colours_argsort = np.argsort(wc_colours_hsv[:,0])
+        wc_colours_names = wc_colours_names[wc_colours_argsort]
+        wc_colours_hsv = wc_colours_hsv[wc_colours_argsort]
+        wc_colours_lab = wc_colours_lab[wc_colours_argsort]
+
+        # Create storage variables for label colours
+        labels_colours_dist = np.zeros([ len(np.unique(self.labels_list)), len(wc_colours_names) ])
+        labels_rgb = np.zeros([ len(np.unique(self.labels_list)), 3 ])
+        labels_rgb_names = ['']*len(np.unique(self.labels_list))
+        labels_hsv = np.zeros([ len(np.unique(self.labels_list)), 3 ])
+        labels_rgb_bright = np.zeros([ len(np.unique(self.labels_list)), 3 ])
 
         # Loop over labels, in order to work out what colour they actually represent
-        labels_colour_dist = np.zeros([ len(np.unique(self.labels_list)), len(colour_names) ])
-        labels_rgb = np.zeros([ len(np.unique(self.labels_list)), 3 ])
-        labels_rgb_bright = np.zeros([ len(np.unique(self.labels_list)), 3 ])
-        for i in np.unique(self.labels_list):
+        for i in self.labels:
 
             # Work out 'typical' rgb colour for pixels in cells assigned this label
             labels_rgb[i,0] = np.nanmedian( self.cube[:,:,0][ np.where(self.labelmap==i) ] ) / 255
@@ -488,24 +506,50 @@ class RGB():
 
             # Convert colour from RGB to HSV (useful to generate bright 'clean' version of colour)
             label_hsv = skimage.color.rgb2hsv(np.array([[labels_rgb[i,:]]]))[0][0]
-            np.array([label_hsv[0],1,1])
+            labels_hsv[i,:] = label_hsv
             labels_rgb_bright[i,:] = skimage.color.hsv2rgb( np.array([[np.array([label_hsv[0],1,1])]]) )[0][0]
 
             # Now convert to LAB olour (useful, as this has actual perceptual meaning)
             label_lab = skimage.color.rgb2lab( skimage.color.hsv2rgb( np.array([[label_hsv]]) ) )[0][0]
 
-            # Record colour distance pure from defined colours
-            for j in range(0, len(colour_names)):
-                labels_colour_dist[i,j] = scipy.spatial.distance.euclidean(label_lab, colour_values_lab[j,:]) #scipy.spatial.distance.euclidean(label_rgb, colour_values_rgb[j,:])
+            # Record colour distances from defined colours
+            for j in range(0, len(wc_colours_names)):
+                labels_colours_dist[i,j] = scipy.spatial.distance.euclidean(label_lab, wc_colours_lab[j,:])
 
-        # Record colours
-        self.labels_rgb = labels_rgb
-        self.labels_rgb_bright = labels_rgb_bright
+            # Work out which webcolors reference colour is closes to this colour
+            labels_rgb_names[i] = AstroCell.Process.ColourName(tuple((255*labels_rgb_bright[i,:]).tolist()))
+
+        # Sort labels into order of hue, for consistency in output files, and record
+        labels_colours_argsort = np.argsort(labels_hsv[:,0])
+        self.labels = self.labels[labels_colours_argsort]
+        self.labels_counts = self.labels_counts[labels_colours_argsort]
+        self.labels_rgb = labels_rgb[labels_colours_argsort]
+        self.labels_rgb_bright = labels_rgb_bright[labels_colours_argsort]
+        self.labels_rgb_names = np.array(labels_rgb_names)[labels_colours_argsort]
+
+
+
+    def OutFileRecord(self):
+        """ Method that writes results of cell count to output text file """
+
+        # Open the output file
+        table_file_path = os.path.join(self.out_dir, 'AstroCell_Results.txt')
+        table_file = open( table_file_path, 'a')
+
+        # Construct output line string
+        table_line = str(self.id)
+        for i in range(0, self.labels.size):
+            table_line += ','+self.labels_rgb_names[i]+','+str(self.labels_counts[i])
+
+        # Write to file, and close
+        table_line += '\n'
+        table_file.write(table_line)
+        table_file.close()
 
 
 
     def OverviewImages(self):
-        """ Function that produces overview image figure of the results """
+        """ Method that produces overview image figure of the results """
 
         # Use size of image, and number of panes desired, to determine size of figure
         map_aspect = float(self.coadd.map.shape[1]) / float(self.coadd.map.shape[0])
@@ -521,8 +565,8 @@ class RGB():
         # Remove ticks and frames from axes
         [ ax.set_xticklabels([]) for ax in axes ]
         [ ax.set_yticklabels([]) for ax in axes ]
-        [ ax.axhline(linewidth=5, color='black') for ax in axes ]
-        [ ax.axvline(linewidth=5, color='black') for ax in axes ]
+        [ ax.axhline(linewidth=2, color='black') for ax in axes ]
+        [ ax.axvline(linewidth=2, color='black') for ax in axes ]
         [ ax.tick_params(axis='both', which='both', bottom='off', top='off', left='off', right='off') for ax in axes ]
 
         # Generate dilated verison of seg map, for display
