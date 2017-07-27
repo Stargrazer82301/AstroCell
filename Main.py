@@ -44,7 +44,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # If testing, load in a pre-processed dill file (to skip uncessary reprocessing)
         rgb = dill.load( open( os.path.join(dill_dir,str('.'.join(in_image.split('.')[:-1]))+'.dj'), 'rb' ) )
-
+        """
         # Initiate AstroCell RGB object
         rgb = AstroCell.RGB.RGB(os.path.join(in_dir,in_image), out_dir)
 
@@ -101,7 +101,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-
+        """
         # Perform cell 'photometry'
         rgb.CellPhotom()
 
@@ -122,10 +122,9 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Save processed RGB object, for later testing use
         if isinstance(dill_dir, str): rgb.Dill(dill_dir)
-        pdb.set_trace()
 
-    # Tidy up output file, to account for line-length inconsistencies in case of
-
+    # Tidy up output file, to account for line-length inconsistencies when number of cell colours not explicitly defined
+    AstroCell.IO.OutFileFinalise(out_dir, cell_colours)
 
     # Report completion
     if verbose:

@@ -84,6 +84,17 @@ def OutFilePrep(out_dir, cell_colours):
 
 
 
+def OutFileFinalise(out_dir, cell_colours):
+    """ Function to tidy up output csv file, in the case when the number of cell colours is not given """
+
+    # If number of cell colours is given, then no need to do anything
+    if isinstance(cell_colours, (float,int)):
+        return None
+    elif cell_colours == None:
+        pdb.set_trace()
+
+
+
 class Bunch:
     """ Convenience class for gathering related data in an object """
     def __init__(self, **kwds):

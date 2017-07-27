@@ -21,7 +21,7 @@ if __name__ == '__main__':
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
     #img_dir = 'Histochemial/3100_zeb1'
     #img_dir = 'Flourescant/Liver/APCFLOX1688/Specific'
-    img_dir = 'Flourescant/Mammary/Ref_LO/Specific'
+    img_dir = 'Flourescant/Mammary/Ref_LO'
     #img_dir = 'Histochemial/Mammary/Ref_LO/'
     in_dir = os.path.join(test_dir, img_dir)
 
