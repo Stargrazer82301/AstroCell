@@ -5,6 +5,8 @@ import gc
 import copy
 import time
 import datetime
+import warnings
+warnings.filterwarnings("ignore")
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
@@ -103,7 +105,7 @@ def FillHoles(map_in):
 
 
 
-def WaterWrapper(Image, seg_map, iter_total):
+def WaterWrapper(Image, seg_map, iter_total, verbose):
     """ Wrapper around watershed segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with
@@ -176,15 +178,18 @@ def WaterWrapper(Image, seg_map, iter_total):
     # Work out when to report estimated completion time, and then do so
     iter_report = np.max([ 5*(mp.cpu_count()-1), int(iter_total/10) ])
     if iter_complete == 1:
-        print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending....')
-    if iter_complete == iter_report:
+        if verbose:
+            print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
+    elif iter_complete == iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now
         delta_m, delta_s = divmod(datetime_delta.total_seconds(), 60)
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
-        print('...Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').')
+        if verbose:
+            print('Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').',
+                  end='\r')
 
     # Clean up, and return output segmentation map
     gc.collect
@@ -192,7 +197,7 @@ def WaterWrapper(Image, seg_map, iter_total):
 
 
 
-def WalkerWrapper(Image, seg_map, iter_total):
+def WalkerWrapper(Image, seg_map, iter_total, verbose):
     """ Wrapper around random walker segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with
@@ -255,15 +260,18 @@ def WalkerWrapper(Image, seg_map, iter_total):
     # Work out when to report estimated completion time, and then do so
     iter_report = np.max([ 5*(mp.cpu_count()-1), int(iter_total/10) ])
     if iter_complete == 1:
-        print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending....')
-    if iter_complete == iter_report:
+        if verbose:
+            print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending....')
+    else:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now
         delta_m, delta_s = divmod(datetime_delta.total_seconds(), 60)
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
-        print('...Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').')
+        if verbose:
+            print('...Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').',
+                  end='\r')
 
     # Clean up, and return output segmentation map
     gc.collect
