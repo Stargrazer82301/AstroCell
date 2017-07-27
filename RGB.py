@@ -391,12 +391,29 @@ class RGB():
     def CellPhotom(self):
         """ Method that measures the properties of all the segmented cells in the image """
 
+        # Declare columns for 'photometry' table
+        table_col_names = ('id',
+                           'i_coord','j_coord','area',
+                           'b_flux','g_flux','r_flux',
+                           'b_mu','g_mu','r_mu',
+                           'bg_colour','br_colour','gr_colour',
+                           'bg_top_colour','br_top_colour','gr_top_colour')
+        table_col_dtypes = ('i8',
+                            'f8','f8','f8',
+                            'f8','f8','f8',
+                            'f8','f8','f8',
+                            'f8','f8','f8',
+                            'f8','f8','f8')
+
         # Create table object to hold cell properties
-        table_col_names = ('id','i_coord','j_coord','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_colour','br_colour','gr_colour')
-        table_col_dtypes = ('i8','i8','i8','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
         self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
-        self.table.data_cols = ('b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_colour','br_colour','gr_colour')
-        self.table.colour_cols = ('bg_colour','br_colour','gr_colour')
+
+        # Identify some specific sub-sets of the columns
+        self.table.data_cols = ('b_flux','g_flux','r_flux',
+                                'b_mu','g_mu','r_mu',
+                                'bg_colour','br_colour','gr_colour',
+                                'bg_top_colour','br_top_colour','gr_top_colour')
+        self.table.colour_cols = ('bg_top_colour','br_top_colour','gr_top_colour')
 
         # Loop over segments
         for i in range(1, int(self.segmap.max())):
@@ -406,23 +423,52 @@ class RGB():
             if seg_where[0].shape[0] == 0:
                 continue
 
+            # Calculate area and coordinates
+            row_area = seg_where[0].shape[0]
+            index_map = self.segmap.copy()
+            index_map[np.where(self.segmap!=i)] == 0
+            row_coord_i = np.median( np.where(self.segmap==i)[0] )
+            row_coord_j = np.median( np.where(self.segmap==i)[0] )
+
+            # Calculate fluxes
+            row_flux_b = np.sum(self.b.map[seg_where])
+            row_flux_g = np.sum(self.g.map[seg_where])
+            row_flux_r = np.sum(self.r.map[seg_where])
+
+            # Calculate mean surface brightnesses
+            row_mu_b = np.mean(self.b.map[seg_where])
+            row_mu_g = np.mean(self.g.map[seg_where])
+            row_mu_r = np.mean(self.r.map[seg_where])
+
+            # Calculate mean-mu colours (with offset of 10 to prevent zero-based log troubles)
+            row_colour_bg = np.log10(10.0+row_mu_b) - np.log10(10.0+row_mu_g)
+            row_colour_br = np.log10(10.0+row_mu_b) - np.log10(10.0+row_mu_r)
+            row_colour_gr = np.log10(10.0+row_mu_g) - np.log10(10.0+row_mu_r)
+
+            # Calculate top-mu colours
+            med_mu_b = np.median(self.b.map[seg_where])
+            med_mu_g = np.median(self.g.map[seg_where])
+            med_mu_r = np.median(self.r.map[seg_where])
+            top_where_b = np.where( (self.segmap==i) & (self.b.map>med_mu_b) )
+            top_where_g = np.where( (self.segmap==i) & (self.g.map>med_mu_g) )
+            top_where_r = np.where( (self.segmap==i) & (self.r.map>med_mu_r) )
+            top_mu_b = np.nanmax([ 0.0, np.mean(self.b.map[top_where_b]) ])
+            top_mu_g = np.nanmax([ 0.0, np.mean(self.g.map[top_where_b]) ])
+            top_mu_r = np.nanmax([ 0.0, np.mean(self.r.map[top_where_b]) ])
+            row_top_colour_bg = np.log10(10.0+top_mu_b) - np.log10(10.0+top_mu_g)
+            row_top_colour_br = np.log10(10.0+top_mu_b) - np.log10(10.0+top_mu_r)
+            row_top_colour_gr = np.log10(10.0+top_mu_g) - np.log10(10.0+top_mu_r)
+
             # Calculate and record segment properties
             self.table.add_row([i,
-                                seg_where[0].shape[0],
-                                scipy.ndimage.measurements.center_of_mass(self.segmap, labels=self.segmap, index=i)[0],
-                                scipy.ndimage.measurements.center_of_mass(self.segmap, labels=self.segmap, index=i)[1],
-                                np.sum(self.b.map[seg_where]),
-                                np.sum(self.g.map[seg_where]),
-                                np.sum(self.r.map[seg_where]),
-                                np.sum(self.b.map[seg_where])/seg_where[0].shape[0],
-                                np.sum(self.g.map[seg_where])/seg_where[0].shape[0],
-                                np.sum(self.r.map[seg_where])/seg_where[0].shape[0],
-                                np.arcsinh(np.sum(self.b.map[seg_where])) - np.arcsinh(np.sum(self.g.map[seg_where])),
-                                np.arcsinh(np.sum(self.b.map[seg_where])) - np.arcsinh(np.sum(self.r.map[seg_where])),
-                                np.arcsinh(np.sum(self.g.map[seg_where])) - np.arcsinh(np.sum(self.r.map[seg_where]))])
+                                row_area, row_coord_i, row_coord_j,
+                                row_flux_b, row_flux_g, row_flux_r,
+                                row_mu_b, row_mu_g, row_mu_r,
+                                row_colour_bg, row_colour_br, row_colour_gr,
+                                row_top_colour_bg, row_top_colour_br,row_top_colour_gr])
 
-        """# Write 'photometry' table to output directory
-        self.table.write(os.path.join(self.out_dir,'.'.join(self.in_file.split('.'))[:-1]+'.csv'))"""
+        # Write 'photometry' table to output directory
+        self.table.write(os.path.join(self.out_dir,self.id+'.csv'))
 
 
 
@@ -560,13 +606,16 @@ class RGB():
         fig_y_dim = 10.0
 
         # Create figure and axes
+        import warnings
+        warnings.filterwarnings("ignore")
+        plt.ioff()
         fig, axes = plt.subplots(fig_y_panes, fig_x_panes, figsize=(fig_x_dim, fig_y_dim))
 
         # Remove ticks and frames from axes
         [ ax.set_xticklabels([]) for ax in axes ]
         [ ax.set_yticklabels([]) for ax in axes ]
-        [ ax.axhline(linewidth=2, color='black') for ax in axes ]
-        [ ax.axvline(linewidth=2, color='black') for ax in axes ]
+        [ ax.axhline(linewidth=5, color='black') for ax in axes ]
+        [ ax.axvline(linewidth=5, color='black') for ax in axes ]
         [ ax.tick_params(axis='both', which='both', bottom='off', top='off', left='off', right='off') for ax in axes ]
 
         # Generate dilated verison of seg map, for display
@@ -598,7 +647,7 @@ class RGB():
 
         # Set figure to have tight layout, remove axis frames, and save to file
         fig.tight_layout()
-        fig.savefig( os.path.join( self.out_dir, '.'.join(self.in_file.split('.')[:-1])+'_output.png' ), dpi=200 )
+        fig.savefig( os.path.join( self.out_dir, self.id+'_output.png' ), dpi=200 )
         #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
