@@ -19,7 +19,7 @@ plt.ioff()
 
 
 
-def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc_factor=1.0, dill_dir=False):
+def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc_factor=1.0, dill_dir=False, verbose=True):
     """ Define function that commences AstroCell cell-counting pipeline """
 
     # Create output directory
@@ -50,6 +50,9 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Create temporary directory inside output directory, and store its location
         rgb.TempDir()
+
+        # Record verbosity
+        rgb.RecVerbose(verbose)
 
         # Record if operating in parallel
         rgb.RecParallel(parallel)
