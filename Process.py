@@ -16,6 +16,7 @@ import astropy.io.fits
 import skimage.feature
 import skimage.measure
 import pyamg
+import webcolors
 from ChrisFuncs import SigmaClip, ProgressDir
 plt.ioff()
 
@@ -289,6 +290,29 @@ def HysterThresh(in_image, v_low, v_high):
 
     # Return resulting masl
     return out_mask
+
+
+
+def ColourName(requested_colour):
+    """ Stack Overflow function by user fraxel to return an English name for an RGB colour (https://tinyurl.com/yav4y9tb) """
+
+    # First see if webcolors has an exact match (unlikely, but hey)
+    try:
+        closest_name = webcolors.rgb_to_name(tuple(requested_colour))
+
+    # If not exact match, find closest RGB euclidian match
+    except ValueError:
+        min_colours = {}
+        for key, name in webcolors.css3_hex_to_names.items():
+            r_c, g_c, b_c = webcolors.hex_to_rgb(key)
+            rd = (r_c - requested_colour[0]) ** 2
+            gd = (g_c - requested_colour[1]) ** 2
+            bd = (b_c - requested_colour[2]) ** 2
+            min_colours[(rd + gd + bd)] = name
+        closest_name = min_colours[min(min_colours.keys())]
+
+    # Return Ennglish name of best match
+    return closest_name
 
 
 
