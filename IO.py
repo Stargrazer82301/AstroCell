@@ -59,9 +59,22 @@ class Parallel():
 
 
 
+def OutFilePrep(out_dir, cell_colours):
+    """ Function to create output csv file to hold results """
 
-    # Plot label borders onto image, for each label
-    #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
+    # Construct file header, depending upon if there are a perscribed number of cell colours to work with
+    table_header = 'image'
+    if isinstance(cell_colours, (float,int)):
+        for i in range(0, cell_colours):
+            table_header += ',' + ','.join(['colour_'+str(i+1),'colour_'+str(i+1)+'_count'])
+        table_header += '\n'
+    elif cell_colours == None:
+        table_header += '\n'
+
+    # Open output table file, write header, then close file
+    table_file = open( os.path.join(out_dir, 'AstroCell_Results.txt'), 'a')
+    table_file.write(table_header)
+    table_file.close()
 
 
 
