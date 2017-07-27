@@ -3,6 +3,8 @@ import pdb
 import os
 import sys
 sys.path.append('/home/chris/Dropbox/Work/Scripts/')
+import warnings
+warnings.filterwarnings("ignore")
 import dill
 import imghdr
 import numpy as np
@@ -34,9 +36,12 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
     in_files = [in_file for in_file in in_files if not os.path.isdir(os.path.join(in_dir,in_file))]
     in_images = [in_file for in_file in in_files if imghdr.what(os.path.join(in_dir,in_file))!=None]
 
+    # Prepare results table file
+    AstroCell.IO.OutFilePrep(out_dir, cell_colours)
+
     # Loop over image files, running them through the pipeline in turn
     for in_image in np.random.permutation(in_images):
-        """
+
         # If testing, load in a pre-processed dill file (to skip uncessary reprocessing)
         rgb = dill.load( open( os.path.join(dill_dir,str('.'.join(in_image.split('.')[:-1]))+'.dj'), 'rb' ) )
         """
@@ -87,13 +92,13 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Use canny features to create markers for cells and background, to anchor segmentation
         [ channel.ThreshSegment(rgb.blob_mask) for channel in rgb.iter_coadd ]
-        rgb.r.DeblendSegment()
+
         # Deblend watershed border maps, to perform segmentations for each band
         [ channel.DeblendSegment() for channel in rgb.iter_coadd ]
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-
+        """
         # Perform cell 'photometry'
         rgb.CellPhotom()
 
@@ -104,40 +109,13 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
         rgb.CellColours()
 
         # Create result overview images
-        AstroCell.IO.OverviewImages(rgb)
+        rgb.OverviewImages()
 
         # Tidy up temporary directory
         rgb.TempDirTidy()
 
         # Save processed RGB object, for later testing use
         if isinstance(dill_dir, str): rgb.Dill(dill_dir)
-
+        pdb.set_trace()
     # Report completion
     print('[AstroCell] Processing of all images completed.')
-
-
-
-
-
-# Main task; generally you want to run AstroCell as a function, but it's useful to initiate a run here way for development and testing
-if __name__ == '__main__':
-
-    # Include reloads, to handle any recent changes
-    import importlib
-    importlib.reload(AstroCell)
-    importlib.reload(AstroCell.RGB)
-    importlib.reload(AstroCell.Image)
-    importlib.reload(AstroCell.IO)
-
-    # State input directories
-    test_dir = '/home/chris/Dropbox/Work/Scripts/AstroCell/Test/Test_Data/'
-    dill_dir = '/home/chris/Data/AstroCell/Dills/'
-    #img_dir = 'Histochemial/3100_zeb1'
-    #img_dir = 'Flourescant/Liver/APCFLOX1688_Specific'
-    img_dir = 'Flourescant/Mammary/Ref_LO'
-    #img_dir = 'Histochemial/Mammary'
-    #img_dir = 'Histochemial/Mammary/Ref_LO_Specific'
-    in_dir = os.path.join(test_dir, img_dir)
-
-    # Launch AstroCell
-    Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=None, mc_factor=1.0, dill_dir=None)
