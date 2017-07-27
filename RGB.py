@@ -397,11 +397,11 @@ class RGB():
         """ Method that measures the properties of all the segmented cells in the image """
 
         # Create table object to hold cell properties
-        table_col_names = ('id','i_coord','j_coord','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
+        table_col_names = ('id','i_coord','j_coord','area','b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_colour','br_colour','gr_colour')
         table_col_dtypes = ('i8','i8','i8','f8','f8','f8','f8','f8','f8','f8','f8','f8','f8')
         self.table = astropy.table.Table(names=table_col_names, dtype=table_col_dtypes)
-        self.table.data_cols = ('b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_ratio','br_ratio','gr_ratio')
-        self.table.ratio_cols = ('bg_ratio','br_ratio','gr_ratio')
+        self.table.data_cols = ('b_flux','g_flux','r_flux','b_mu','g_mu','r_mu','bg_colour','br_colour','gr_colour')
+        self.table.colour_cols = ('bg_colour','br_colour','gr_colour')
 
         # Loop over segments
         for i in range(1, int(self.segmap.max())):
@@ -422,17 +422,20 @@ class RGB():
                                 np.sum(self.b.map[seg_where])/seg_where[0].shape[0],
                                 np.sum(self.g.map[seg_where])/seg_where[0].shape[0],
                                 np.sum(self.r.map[seg_where])/seg_where[0].shape[0],
-                                np.sum(self.b.map[seg_where])/np.sum(self.g.map[seg_where]),
-                                np.sum(self.b.map[seg_where])/np.sum(self.r.map[seg_where]),
-                                np.sum(self.g.map[seg_where])/np.sum(self.r.map[seg_where])])
+                                np.arcsinh(np.sum(self.b.map[seg_where])) - np.arcsinh(np.sum(self.g.map[seg_where])),
+                                np.arcsinh(np.sum(self.b.map[seg_where])) - np.arcsinh(np.sum(self.r.map[seg_where])),
+                                np.arcsinh(np.sum(self.g.map[seg_where])) - np.arcsinh(np.sum(self.r.map[seg_where]))])
+
+        """# Write 'photometry' table to output directory
+        self.table.write(os.path.join(self.out_dir,'.'.join(self.in_file.split('.'))[:-1]+'.csv'))"""
 
 
 
     def CellClassify(self, cell_colours=None):
-        """ Method that classifies cells based on their location in six-dimensional colour and surface-brightness parameter space """
+        """ Method that classifies cells based on their location in a multi-dimensional parameter space """
 
         # Select only table columns that contain data, convert them into an array for ease of processing
-        data_array = self.table[self.table.ratio_cols].as_array()
+        data_array = self.table[self.table.colour_cols].as_array()
         data_array = data_array.view((float, len(data_array.dtype.names)))
 
         # Scale data for clustering analysis
