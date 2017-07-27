@@ -108,6 +108,22 @@ class RGB():
 
 
 
+    def RecVerbose(self, verbose):
+        """ Brief method that records verbosity each Image object """
+
+        # Record parallel status attribute to self
+        self.verbose = verbose
+
+        # Record parallel status attribute to Image objects
+        for channel in self.iter:
+            channel.verbose = self.verbose
+
+        # If verbosity requested, report that processing has commenced on current image file
+        if self.verbose:
+            print('['+self.id+'] Loading image '+self.in_file+'.')
+
+
+
     def RecParallel(self, parallel):
         """ Brief method that records whether utilising multiprocessing to the RGB object and it's constituent Image objects """
 
