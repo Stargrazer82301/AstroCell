@@ -4,7 +4,7 @@ import pdb
 import shutil
 import dill
 import warnings
-warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore', category=Warning)
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
@@ -397,8 +397,10 @@ class RGB():
                            'b_flux','g_flux','r_flux',
                            'b_mu','g_mu','r_mu',
                            'bg_colour','br_colour','gr_colour',
+                           'b_top_mu','g_top_mu','r_top_mu',
                            'bg_top_colour','br_top_colour','gr_top_colour')
         table_col_dtypes = ('i8',
+                            'f8','f8','f8',
                             'f8','f8','f8',
                             'f8','f8','f8',
                             'f8','f8','f8',
@@ -412,6 +414,7 @@ class RGB():
         self.table.data_cols = ('b_flux','g_flux','r_flux',
                                 'b_mu','g_mu','r_mu',
                                 'bg_colour','br_colour','gr_colour',
+                                'b_top_mu','g_top_mu','r_top_mu',
                                 'bg_top_colour','br_top_colour','gr_top_colour')
         self.table.colour_cols = ('bg_top_colour','br_top_colour','gr_top_colour')
 
@@ -452,12 +455,12 @@ class RGB():
             top_where_b = np.where( (self.segmap==i) & (self.b.map>med_mu_b) )
             top_where_g = np.where( (self.segmap==i) & (self.g.map>med_mu_g) )
             top_where_r = np.where( (self.segmap==i) & (self.r.map>med_mu_r) )
-            top_mu_b = np.nanmax([ 0.0, np.mean(self.b.map[top_where_b]) ])
-            top_mu_g = np.nanmax([ 0.0, np.mean(self.g.map[top_where_b]) ])
-            top_mu_r = np.nanmax([ 0.0, np.mean(self.r.map[top_where_b]) ])
-            row_top_colour_bg = np.log10(10.0+top_mu_b) - np.log10(10.0+top_mu_g)
-            row_top_colour_br = np.log10(10.0+top_mu_b) - np.log10(10.0+top_mu_r)
-            row_top_colour_gr = np.log10(10.0+top_mu_g) - np.log10(10.0+top_mu_r)
+            row_top_mu_b = np.nanmax([ 0.0, np.mean(self.b.map[top_where_b]) ])
+            row_top_mu_g = np.nanmax([ 0.0, np.mean(self.g.map[top_where_g]) ])
+            row_top_mu_r = np.nanmax([ 0.0, np.mean(self.r.map[top_where_r]) ])
+            row_top_colour_bg = np.log10(10.0+row_top_mu_b) - np.log10(10.0+row_top_mu_g)
+            row_top_colour_br = np.log10(10.0+row_top_mu_b) - np.log10(10.0+row_top_mu_r)
+            row_top_colour_gr = np.log10(10.0+row_top_mu_g) - np.log10(10.0+row_top_mu_r)
 
             # Calculate and record segment properties
             self.table.add_row([i,
@@ -465,10 +468,8 @@ class RGB():
                                 row_flux_b, row_flux_g, row_flux_r,
                                 row_mu_b, row_mu_g, row_mu_r,
                                 row_colour_bg, row_colour_br, row_colour_gr,
+                                row_top_mu_b,  row_top_mu_g,  row_top_mu_r,
                                 row_top_colour_bg, row_top_colour_br,row_top_colour_gr])
-
-        # Write 'photometry' table to output directory
-        self.table.write(os.path.join(self.out_dir,self.id+'.csv'))
 
 
 
@@ -513,6 +514,9 @@ class RGB():
         """# Create label maps of image, dilated slightly for display purposes
         self.labelcube = np.zeros([ np.unique(self.table['label']).size, self.coadd.map.shape[0], self.coadd.map.shape[1] ])"""
 
+        # Write 'photometry' table to output directory
+        self.table.write(os.path.join(self.out_dir,'.'.join(self.id.split('.')[:-1])+'.csv'))
+
 
 
     def CellColours(self):
@@ -546,9 +550,9 @@ class RGB():
         for i in self.labels:
 
             # Work out 'typical' rgb colour for pixels in cells assigned this label
-            labels_rgb[i,0] = np.nanmedian( self.cube[:,:,0][ np.where(self.labelmap==i) ] ) / 255
-            labels_rgb[i,1] = np.nanmedian( self.cube[:,:,1][ np.where(self.labelmap==i) ] ) / 225
-            labels_rgb[i,2] = np.nanmedian( self.cube[:,:,2][ np.where(self.labelmap==i) ] ) / 225
+            labels_rgb[i,0] = np.nanmedian( self.table['r_top_mu'] ) / 255
+            labels_rgb[i,1] = np.nanmedian( self.table['g_top_mu'] ) / 225
+            labels_rgb[i,2] = np.nanmedian( self.table['b_top_mu'] ) / 225
 
             # Convert colour from RGB to HSV (useful to generate bright 'clean' version of colour)
             label_hsv = skimage.color.rgb2hsv(np.array([[labels_rgb[i,:]]]))[0][0]
@@ -631,15 +635,15 @@ class RGB():
 
         # Plot label borders onto image, for each label
         image_label_border = self.cube.copy() / 255
-        for i in np.unique(self.labels_list):
+        for i in range(0, self.labels.size):
             image_label_temp = image_label_dilate.copy()
-            image_label_temp[np.where(image_label_temp!=i)] = -1
+            image_label_temp[np.where(image_label_temp!=self.labels[i])] = -1
             image_label_border = skimage.segmentation.mark_boundaries(image_label_border, image_label_temp,
                                                                       color=self.labels_rgb_bright[i,:], mode='thick', background_label=-1)
 
         # Shade in greyscale image regions according to label
         image_label_colour = skimage.color.label2rgb(self.labelmap, image=image_label_border,
-                                                     colors=self.labels_rgb_bright.tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
+                                                     colors=self.labels_rgb_bright[self.labels].tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
 
         # Plot image panels
         axes[0].imshow(image_label_border, origin='upper')
@@ -647,7 +651,8 @@ class RGB():
 
         # Set figure to have tight layout, remove axis frames, and save to file
         fig.tight_layout()
-        fig.savefig( os.path.join( self.out_dir, self.id+'_output.png' ), dpi=200 )
+        pdb.set_trace()
+        fig.savefig( os.path.join( self.out_dir, '.'.join(self.id.split('.')[:-1])+'_output.png' ), dpi=200 )
         #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
