@@ -4,7 +4,7 @@ import os
 import sys
 sys.path.append('/home/chris/Dropbox/Work/Scripts/')
 import warnings
-warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore', category=Warning)
 import dill
 import imghdr
 import numpy as np
@@ -41,7 +41,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
     # Loop over image files, running them through the pipeline in turn
     for in_image in np.random.permutation(in_images):
-
+        """
         # If testing, load in a pre-processed dill file (to skip uncessary reprocessing)
         rgb = dill.load( open( os.path.join(dill_dir,str('.'.join(in_image.split('.')[:-1]))+'.dj'), 'rb' ) )
         """
@@ -101,7 +101,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-        """
+
         # Perform cell 'photometry'
         rgb.CellPhotom()
 

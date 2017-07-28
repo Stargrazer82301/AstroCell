@@ -3,7 +3,7 @@ import sys
 sys.path.append('/home/chris/Dropbox/Work/Scripts/')
 import os
 import warnings
-warnings.filterwarnings('ignore')
+warnings.simplefilter('ignore', category=Warning)
 import numpy as np
 import matplotlib.pyplot as plt
 import astropy.logger
@@ -21,8 +21,8 @@ if __name__ == '__main__':
     dill_dir = '/home/chris/Data/AstroCell/Dills/'
     #img_dir = 'Histochemial/3100_zeb1'
     #img_dir = 'Flourescant/Liver/APCFLOX1688/Specific'
-    img_dir = 'Flourescant/Mammary/Ref_LO'
-    #img_dir = 'Histochemial/Mammary/Ref_LO/'
+    #img_dir = 'Flourescant/Mammary/Ref_LO/Specific'
+    img_dir = 'Histochemial/Mammary/Ref_LO/Specific'
     in_dir = os.path.join(test_dir, img_dir)
 
     # Launch AstroCell

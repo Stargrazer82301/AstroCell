@@ -651,7 +651,6 @@ class RGB():
 
         # Set figure to have tight layout, remove axis frames, and save to file
         fig.tight_layout()
-        pdb.set_trace()
         fig.savefig( os.path.join( self.out_dir, '.'.join(self.id.split('.')[:-1])+'_output.png' ), dpi=200 )
         #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 

@@ -4,7 +4,7 @@ import os
 import copy
 import gc
 import warnings
-warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore', category=Warning)
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
@@ -608,10 +608,10 @@ class Image():
         hyster_seg_map = AstroCell.Process.FillHoles(hyster_seg_map)
 
         # Remove spuriously small features
-        hyster_seg_areas = np.unique(hyster_seg_map, return_counts=True)[1]
-        hyster_exclude = np.arange(0,hyster_seg_areas.size)[ np.where(hyster_seg_areas<self.thresh_area) ]
-        for index_exclue in hyster_exclude:
-            hyster_seg_map[np.where(hyster_seg_map==index_exclue)] = 0
+        hyster_seg_details = np.unique(hyster_seg_map, return_counts=True)
+        for i in range(0, hyster_seg_details[0].size):
+            if hyster_seg_details[1][i] < self.thresh_area:
+                hyster_seg_map[np.where(hyster_seg_map==hyster_seg_details[0][i])] = 0
 
         # Shuffle labels of hysteresis segmentation map, and record
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map).astype(float)

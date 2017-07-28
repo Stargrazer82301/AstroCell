@@ -6,7 +6,7 @@ import copy
 import time
 import datetime
 import warnings
-warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore', category=Warning)
 import multiprocessing as mp
 import numpy as np
 import scipy.stats
