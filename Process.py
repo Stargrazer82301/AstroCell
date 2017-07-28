@@ -105,7 +105,7 @@ def FillHoles(map_in):
 
 
 
-def WaterWrapper(Image, seg_map, iter_total, verbose):
+def WaterWrapper(Image, seg_map, iter_total, verbose, img_id):
     """ Wrapper around watershed segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with
@@ -176,10 +176,10 @@ def WaterWrapper(Image, seg_map, iter_total, verbose):
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp_dir,'Prog_Dir'), iter_total, raw=True)
 
     # Work out when to report estimated completion time, and then do so
-    iter_report = np.max([ 5*(mp.cpu_count()-1), int(iter_total/10) ])
+    iter_report = np.max([ 8*(mp.cpu_count()-1), int(iter_total/8) ])
     if iter_complete == 1:
         if verbose:
-            print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
+            print('['+img_id+'] Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
     elif iter_complete == iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
@@ -188,7 +188,7 @@ def WaterWrapper(Image, seg_map, iter_total, verbose):
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
         if verbose:
-            print('Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').',
+            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').',
                   end='\r')
 
     # Clean up, and return output segmentation map
@@ -197,7 +197,7 @@ def WaterWrapper(Image, seg_map, iter_total, verbose):
 
 
 
-def WalkerWrapper(Image, seg_map, iter_total, verbose):
+def WalkerWrapper(Image, seg_map, iter_total, verbose, img_id):
     """ Wrapper around random walker segmentation function, for ease of parallelisation """
 
     # Make copy of input Image object to work with
@@ -258,10 +258,10 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose):
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp_dir,'Prog_Dir'), iter_total, raw=True)
 
     # Work out when to report estimated completion time, and then do so
-    iter_report = np.max([ 5*(mp.cpu_count()-1), int(iter_total/10) ])
+    iter_report = np.max([ 8*(mp.cpu_count()-1), int(iter_total/8) ])
     if iter_complete == 1:
         if verbose:
-            print('Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending....')
+            print('['+img_id+'] Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
     elif iter_complete == iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
@@ -270,7 +270,7 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose):
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
         if verbose:
-            print('...Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').',
+            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').',
                   end='\r')
 
     # Clean up, and return output segmentation map

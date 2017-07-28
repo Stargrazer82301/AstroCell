@@ -351,7 +351,7 @@ class Image():
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 1.0 * bg_clip[0]
+        seg_thresh = 0.75 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
@@ -400,9 +400,9 @@ class Image():
         pool = mp.Pool(processes=self.parallel.subthreads)
         for i in range(0, iter_total):
             if self.parallel.parallel:
-                water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total, self.verbose,) ) )
+                water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total, self.verbose, self.id,) ) )
             else:
-                water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose) )
+                water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose, self.id) )
         pool.close()
         pool.join()
         water_map_list = [output.get() for output in water_map_list]
@@ -447,9 +447,9 @@ class Image():
         pool = mp.Pool(processes=self.parallel.subthreads)
         for i in range(0, iter_total):
             if self.parallel.parallel:
-                walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total, self.verbose,) ) )
+                walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total, self.verbose, self.id,) ) )
             else:
-                walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose) )
+                walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose, self.id) )
         pool.close()
         pool.join()
         walker_map_list = [output.get() for output in walker_map_list]
