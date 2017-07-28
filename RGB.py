@@ -122,6 +122,7 @@ class RGB():
         # Record parallel status attribute to Image objects
         for channel in self.iter:
             channel.verbose = self.verbose
+            channel.id = self.id
 
         # If verbosity requested, report that processing has commenced on current image file
         if self.verbose:
@@ -169,6 +170,7 @@ class RGB():
         # Record name of coadd channel, location of temp dir, and parallelisation
         self.coadd.name = 'coadd'
         self.coadd.verbose = self.verbose
+        self.coadd.id = self.id
         self.coadd.parallel = self.parallel
         self.coadd.mc_factor = self.mc_factor
         self.coadd.temp_dir = self.temp_dir
@@ -364,6 +366,7 @@ class RGB():
         self.meta = AstroCell.Image.Image(hyster_seg_stack)
         self.meta.name = 'meta'
         self.meta.verbose = self.verbose
+        self.meta.id = self.id
         self.meta.parallel = self.parallel
         self.meta.mc_factor = self.mc_factor
         self.meta.temp_dir = self.temp_dir
@@ -381,7 +384,7 @@ class RGB():
         self.meta.water_border[np.where(self.meta.thresh_segmap==0)] = 0
 
         # Perform hysteresis thresholding on watershed border map
-        self.meta.DeblendSegment(thresh_lower=0.4, thresh_upper=0.9, meta=True)
+        self.meta.DeblendSegment(thresh_lower=0.3, thresh_upper=0.9, meta=True)
 
         # Record final segmentation map to object
         self.segmap = self.meta.hyster_segmap.astype(int)
@@ -550,9 +553,13 @@ class RGB():
         for i in self.labels:
 
             # Work out 'typical' rgb colour for pixels in cells assigned this label
-            labels_rgb[i,0] = np.nanmedian( self.table['r_top_mu'] ) / 255
-            labels_rgb[i,1] = np.nanmedian( self.table['g_top_mu'] ) / 225
-            labels_rgb[i,2] = np.nanmedian( self.table['b_top_mu'] ) / 225
+            labels_rgb[i,0] = np.nanmedian( self.table['r_top_mu'][np.where(self.table['label']==i)] ) / 255
+            labels_rgb[i,1] = np.nanmedian( self.table['g_top_mu'][np.where(self.table['label']==i)] ) / 225
+            labels_rgb[i,2] = np.nanmedian( self.table['b_top_mu'][np.where(self.table['label']==i)] ) / 225
+
+            # If image has been inverted for processing, un-invert colours here
+            if self.inverted:
+                labels_rgb[i,:] = -1.0 * ( labels_rgb[i,:] - 255.0 )
 
             # Convert colour from RGB to HSV (useful to generate bright 'clean' version of colour)
             label_hsv = skimage.color.rgb2hsv(np.array([[labels_rgb[i,:]]]))[0][0]
