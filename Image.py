@@ -351,7 +351,7 @@ class Image():
         in_map = self.detmap.copy().astype(float)
         in_map -= bg_clip[1]
         #seg_thresh = skimage.filters.threshold_otsu(in_map, nbins=1024)
-        seg_thresh = 0.75 * bg_clip[0]
+        seg_thresh = 1.0 * bg_clip[0]
 
         # Use photutils to segment map
         seg_map = photutils.detect_sources(in_map, threshold=seg_thresh, npixels=area_thresh, connectivity=8).array
@@ -483,7 +483,7 @@ class Image():
 
 
 
-    def DeblendSegment(self, thresh_lower=0.3, thresh_upper=0.9, meta=False):
+    def DeblendSegment(self, thresh_lower=0.3, thresh_upper=0.9, meta=False, substructure_flag=False):
         """ Method that performs segmentation using output of watershed segmentations """
 
         # If this is not a meta-segmentation, then create a deblending map
@@ -502,8 +502,13 @@ class Image():
             cross_norm  = self.crossmap - self.crossmap.min()
             cross_norm /= cross_norm.max()
 
-            # Combine into deblending map, construct dummy Image object, and launch watershed thresholding
-            deblend_map = det_norm * cross_norm
+            # Construct deblending map
+            if substructure_flag:
+                deblend_map = cross_norm
+            else:
+                deblend_map = det_norm * cross_norm
+
+            # Construct dummy Image object, and launch watershed thresholding
             self.DeblendHolder(deblend_map)
             self.deblend_holder.WaterBorders()
             hyster_in_map = self.deblend_holder.water_border.copy()

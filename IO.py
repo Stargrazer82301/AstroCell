@@ -49,7 +49,7 @@ class Parallel():
             self.parallel = False
             self.threads = 1
             self.subthreads = 1
-        elif isinstance(parallel,float) or isinstance(parallel,float):
+        elif isinstance(parallel,float) or isinstance(parallel,int):
             self.parallel = True
             self.threads = 1
             self.subthreads = int(parallel)
