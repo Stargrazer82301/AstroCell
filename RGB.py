@@ -419,7 +419,8 @@ class RGB():
                                 'bg_colour','br_colour','gr_colour',
                                 'b_top_mu','g_top_mu','r_top_mu',
                                 'bg_top_colour','br_top_colour','gr_top_colour')
-        self.table.colour_cols = ('bg_top_colour','br_top_colour','gr_top_colour')
+        self.table.cluster_cols = ('bg_colour','br_colour','gr_colour',
+                                  'bg_top_colour','br_top_colour','gr_top_colour')
 
         # Loop over segments
         for i in range(1, int(self.segmap.max())):
@@ -480,7 +481,7 @@ class RGB():
         """ Method that classifies cells based on their location in a multi-dimensional parameter space """
 
         # Select only table columns that contain data, convert them into an array for ease of processing
-        data_array = self.table[self.table.colour_cols].as_array()
+        data_array = self.table[self.table.cluster_cols].as_array()
         data_array = data_array.view((float, len(data_array.dtype.names)))
 
         # Scale data for clustering analysis
@@ -524,7 +525,7 @@ class RGB():
 
 
     def CellColours(self):
-        """ Method that works out the colours of classified cells """
+        """ Method that works out the colours of classified cells (NB: Throughout this method RGB tends to refer to the RGB colourspace) """
 
         # Take reference colour names from webcolors package, and convert to hsv to obtain hue
         wc_colours_hex = webcolors.css3_names_to_hex
@@ -544,11 +545,12 @@ class RGB():
         wc_colours_lab = wc_colours_lab[wc_colours_argsort]
 
         # Create storage variables for label colours
-        labels_colours_dist = np.zeros([ len(np.unique(self.labels_list)), len(wc_colours_names) ])
         labels_rgb = np.zeros([ len(np.unique(self.labels_list)), 3 ])
         labels_rgb_names = ['']*len(np.unique(self.labels_list))
         labels_hsv = np.zeros([ len(np.unique(self.labels_list)), 3 ])
         labels_rgb_bright = np.zeros([ len(np.unique(self.labels_list)), 3 ])
+        labels_hsv_bright = np.zeros([ len(np.unique(self.labels_list)), 3 ])
+        #labels_colours_dist = np.zeros([ len(np.unique(self.labels_list)), len(wc_colours_names) ])
 
         # Loop over labels, in order to work out what colour they actually represent
         for i in self.labels:
@@ -565,17 +567,36 @@ class RGB():
             # Convert colour from RGB to HSV (useful to generate bright 'clean' version of colour)
             label_hsv = skimage.color.rgb2hsv(np.array([[labels_rgb[i,:]]]))[0][0]
             labels_hsv[i,:] = label_hsv
-            labels_rgb_bright[i,:] = skimage.color.hsv2rgb( np.array([[np.array([label_hsv[0],1,1])]]) )[0][0]
-
+            labels_hsv_bright[i,:] = np.array([label_hsv[0],1,1])
+            labels_rgb_bright[i,:] = skimage.color.hsv2rgb( np.array([[labels_hsv_bright[i,:]]]) )[0][0]
+            """
             # Now convert to LAB olour (useful, as this has actual perceptual meaning)
             label_lab = skimage.color.rgb2lab( skimage.color.hsv2rgb( np.array([[label_hsv]]) ) )[0][0]
 
             # Record colour distances from defined colours
             for j in range(0, len(wc_colours_names)):
                 labels_colours_dist[i,j] = scipy.spatial.distance.euclidean(label_lab, wc_colours_lab[j,:])
-
+            """
             # Work out which webcolors reference colour is closes to this colour
             labels_rgb_names[i] = AstroCell.Process.ColourName(tuple((255*labels_rgb_bright[i,:]).tolist()))
+
+        # Determine how simular hues of each label are
+        labels_hue = labels_hsv_bright[:,0]
+        labels_hue_mean = scipy.stats.circmean(labels_hue, high=1)
+        labels_hue_shift = labels_hue + ( 0.5 + (1-labels_hue_mean) )
+        labels_hue_shift = np.mod(labels_hue_shift, 1)
+
+        # If hues are too similar, space them out, and reassign/rename the RGB-colourspace counterparts
+        hue_range = labels_hue_shift.max() - labels_hue_shift.min()
+        hue_range_thresh = 0.15
+        if hue_range < hue_range_thresh:
+            labels_hue_shift_new = 0.5 + np.linspace( (-0.5*hue_range_thresh), (0.5*hue_range_thresh), num=self.labels.size )
+            labels_hue_new = labels_hue_shift_new - ( 0.5 + (1-labels_hue_mean) )
+            labels_hue_new = np.mod(labels_hue_new, 1)
+            labels_hsv_bright[:,0] = labels_hue_new
+            labels_rgb_bright = skimage.color.hsv2rgb( [labels_hsv_bright] )[0]
+            for i in self.labels:
+                labels_rgb_names[i] = AstroCell.Process.ColourName(tuple((255*labels_rgb_bright[i,:]).tolist()))
 
         # Sort labels into order of hue, for consistency in output files, and record
         labels_colours_argsort = np.argsort(labels_hsv[:,0])
