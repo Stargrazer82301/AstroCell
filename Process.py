@@ -176,11 +176,11 @@ def WaterWrapper(Image, seg_map, iter_total, verbose, img_id):
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp_dir,'Prog_Dir'), iter_total, raw=True)
 
     # Work out when to report estimated completion time, and then do so
-    iter_report = np.max([ 8*(mp.cpu_count()-1), int(iter_total/8) ])
+    iter_report = np.min([ 10*(mp.cpu_count()-1), int(iter_total/5) ])
     if iter_complete == 1:
         if verbose:
             print('['+img_id+'] Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
-    elif iter_complete == iter_report:
+    elif iter_complete > 1: #== iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now
@@ -258,11 +258,11 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose, img_id):
     iter_complete, time_est = ProgressDir(os.path.join(Image.temp_dir,'Prog_Dir'), iter_total, raw=True)
 
     # Work out when to report estimated completion time, and then do so
-    iter_report = np.max([ 8*(mp.cpu_count()-1), int(iter_total/8) ])
+    iter_report = np.min([ 10*(mp.cpu_count()-1), int(iter_total/5) ])
     if iter_complete == 1:
         if verbose:
             print('['+img_id+'] Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
-    elif iter_complete == iter_report:
+    elif iter_complete > 1: #== iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now
@@ -321,6 +321,4 @@ def ColourName(requested_colour):
 
     # Return Ennglish name of best match
     return closest_name
-
-
 
