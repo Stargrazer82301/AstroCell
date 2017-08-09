@@ -654,11 +654,24 @@ class RGB():
         fig, axes = plt.subplots(fig_y_panes, fig_x_panes, figsize=(fig_x_dim, fig_y_dim))
 
         # Remove ticks and frames from axes
-        [ ax.set_xticklabels([]) for ax in axes ]
-        [ ax.set_yticklabels([]) for ax in axes ]
-        [ ax.axhline(linewidth=5, color='black') for ax in axes ]
-        [ ax.axvline(linewidth=5, color='black') for ax in axes ]
-        [ ax.tick_params(axis='both', which='both', bottom='off', top='off', left='off', right='off') for ax in axes ]
+        [ ax.set_xticklabels([]) for ax in axes.flatten() ]
+        [ ax.set_yticklabels([]) for ax in axes.flatten() ]
+        [ ax.axhline(linewidth=5, color='black') for ax in axes.flatten() ]
+        [ ax.axvline(linewidth=5, color='black') for ax in axes.flatten() ]
+        [ ax.tick_params(axis='both', which='both', bottom='off', top='off', left='off', right='off') for ax in axes.flatten() ]
+
+        # Create multicoloured illustration of all segments (not yet showing classification at this stage)
+        seg_vis_map = self.segmap.copy()
+        seg_vis_map -= np.min(seg_vis_map[np.where(seg_vis_map>0)]) - 1
+        seg_vis_map[np.where(seg_vis_map==np.min(seg_vis_map))] = 0
+        seg_vis_centres = scipy.ndimage.center_of_mass(seg_vis_map+2, seg_vis_map, index=np.arange(1,seg_vis_map.max()+1))
+        seg_vis_centres = np.array(seg_vis_centres).astype(int)
+        seg_vis_graph = sklearn.neighbors.kneighbors_graph(np.array(seg_vis_centres), 25)
+        seg_vis_graph = pyamg.graph.vertex_coloring(seg_vis_graph)
+        seg_vis_graph = np.concatenate(([0], seg_vis_graph))
+        seg_vis_map = seg_vis_graph[seg_vis_map]
+        seg_vis_colours = [ plt.cm.spectral(val) for val in np.linspace(0, 1, seg_vis_map.max() + 1) ]
+        seg_vis_colour_img = skimage.color.label2rgb(seg_vis_map, colors=seg_vis_colours)
 
         # Generate dilated verison of seg map, for display
         image_label_dilate = np.zeros(self.segmap.shape) - 1
@@ -684,12 +697,14 @@ class RGB():
                                                      colors=self.labels_rgb_bright[self.labels].tolist(), bg_label=-1, bg_color=[1,1,1], image_alpha=0.999)
 
         # Plot image panels
-        axes[0].imshow(image_label_border, origin='upper')
-        axes[1].imshow(image_label_colour, origin='upper')
+        axes[0,0].imshow(self.cube/255, origin='upper')
+        axes[0,1].imshow(seg_vis_colour_img, origin='upper')
+        axes[1,0].imshow(image_label_border, origin='upper')
+        axes[1,1].imshow(image_label_colour, origin='upper')
 
         # Set figure to have tight layout, remove axis frames, and save to file
         fig.tight_layout()
-        fig.savefig( os.path.join( self.out_dir, '.'.join(self.id.split('.')[:-1])+'_output.png' ), dpi=200 )
+        fig.savefig( os.path.join( self.out_dir, '.'.join(self.id.split('.')[:-1])+'_output.png' ), dpi=250 )
         #astropy.io.fits.writeto('/home/chris/bob.fits', image_label_dilate.astype(float), clobber=True)
 
 
