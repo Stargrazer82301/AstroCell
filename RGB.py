@@ -22,6 +22,7 @@ import photutils
 import skimage.feature
 import sklearn.cluster
 import PIL.Image
+import pyamg.graph
 import joblib
 import webcolors
 import AstroCell.Process
@@ -555,10 +556,17 @@ class RGB():
         # Loop over labels, in order to work out what colour they actually represent
         for i in self.labels:
 
-            # Work out 'typical' rgb colour for pixels in cells assigned this label
-            labels_rgb[i,0] = np.nanmedian( self.table['r_top_mu'][np.where(self.table['label']==i)] ) / 255
-            labels_rgb[i,1] = np.nanmedian( self.table['g_top_mu'][np.where(self.table['label']==i)] ) / 225
-            labels_rgb[i,2] = np.nanmedian( self.table['b_top_mu'][np.where(self.table['label']==i)] ) / 225
+            # Identify pixels in cells assigned current label
+            label_where = np.where(self.labelmap==i)
+
+            # Use coadd channel to find the brightest pixels assigned this label
+            label_coadd_median = np.median(self.coadd.map[label_where])
+            label_where_bright = np.where( (self.coadd.map>label_coadd_median) * (self.labelmap==i) )
+
+            # Work out representative rgb colour for pixels in cells assigned this label (note, really annoying BGR->RGB interface)
+            labels_rgb[i,0] = np.median( self.iter[2].map[label_where_bright] ) / 255
+            labels_rgb[i,1] = np.median( self.iter[1].map[label_where_bright] ) / 255
+            labels_rgb[i,2] = np.median( self.iter[0].map[label_where_bright] ) / 255
 
             # If image has been inverted for processing, un-invert colours here
             if self.inverted:
@@ -570,7 +578,7 @@ class RGB():
             labels_hsv_bright[i,:] = np.array([label_hsv[0],1,1])
             labels_rgb_bright[i,:] = skimage.color.hsv2rgb( np.array([[labels_hsv_bright[i,:]]]) )[0][0]
             """
-            # Now convert to LAB olour (useful, as this has actual perceptual meaning)
+            # Now convert to LAB colour (useful, as this has actual perceptual meaning)
             label_lab = skimage.color.rgb2lab( skimage.color.hsv2rgb( np.array([[label_hsv]]) ) )[0][0]
 
             # Record colour distances from defined colours
@@ -600,6 +608,7 @@ class RGB():
 
         # Sort labels into order of hue, for consistency in output files, and record
         labels_colours_argsort = np.argsort(labels_hsv[:,0])
+        labels_colours_argsort = np.arange(0,self.labels.size) # This temporarily disables hue-sorting, for testing
         self.labels = self.labels[labels_colours_argsort]
         self.labels_counts = self.labels_counts[labels_colours_argsort]
         self.labels_rgb = labels_rgb[labels_colours_argsort]
@@ -632,7 +641,7 @@ class RGB():
 
         # Use size of image, and number of panes desired, to determine size of figure
         map_aspect = float(self.coadd.map.shape[1]) / float(self.coadd.map.shape[0])
-        fig_x_panes = 1
+        fig_x_panes = 2
         fig_y_panes = 2
         fig_aspect = ( fig_x_panes * map_aspect ) / fig_y_panes
         fig_x_dim = 10.0 * fig_aspect

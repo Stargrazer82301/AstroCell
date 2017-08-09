@@ -19,8 +19,14 @@ plt.ioff()
 
 
 
-def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc_factor=1.0, dill_dir=False, verbose=True):
-    """ Define function that commences AstroCell cell-counting pipeline """
+def Run(in_dir=False,
+        cell_colours=2,
+        substructure_flag=False,
+        parallel=True,
+        mc_factor=1.0,
+        dill_dir=False,
+        verbose=True):
+    """ Define function that commences AstroCell cell-counting-and-classifying pipeline """
 
     # Create output directory
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
@@ -101,7 +107,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-        """
+
         # Perform cell 'photometry'
         rgb.CellPhotom()
 
@@ -113,7 +119,7 @@ def Run(in_dir=False, cell_colours=2, substructure_flag=False, parallel=True, mc
 
         # Save results to output file
         rgb.OutFileRecord()
-
+        """
         # Create result overview images
         rgb.OverviewImages()
 
