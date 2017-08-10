@@ -34,7 +34,16 @@ class MyFirstGUI:
     def greet(self):
         print("Greetings!")
 
-# Run GUI
+
+
+# Run an initial tk instance, to request path to directory the contents of which are to be processed by AstroCell
 root = tkinter.Tk()
 my_gui = MyFirstGUI(root)
+root.withdraw()
+root.dir_name = tkinter.filedialog.askdirectory(initialdir=os.getcwd(), title="Select folder to be processed")
+print(root.dir_name)
+
+# Run options GUI, to provide setup for AstroCell
+root.deiconify()
+gui = OptionsGUI(root)
 root.mainloop()
