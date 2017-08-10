@@ -107,7 +107,7 @@ def Run(in_dir=False,
 
         # Combine segments form individual bands to produce final segmentation
         rgb.SegmentCombine()
-
+        """
         # Perform cell 'photometry'
         rgb.CellPhotom()
 
@@ -119,7 +119,7 @@ def Run(in_dir=False,
 
         # Save results to output file
         rgb.OutFileRecord()
-        """
+
         # Create result overview images
         rgb.OverviewImages()
 
