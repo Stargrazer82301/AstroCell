@@ -489,7 +489,7 @@ class RGB():
         data_scaler = sklearn.preprocessing.StandardScaler(copy=False)
         data_array = data_scaler.fit_transform(data_array)
 
-        # If number os cell colours is pre-stated, use Ward Agglomerative custer-finding algorithm
+        # If number os cell colours is pre-stated, use k-means custer-finding algorithm
         if isinstance(cell_colours, (float,int)):
             cluster_algorithm = sklearn.cluster.KMeans(n_clusters=cell_colours)
             #cluster_algorithm = sklearn.cluster.AgglomerativeClustering(n_clusters=cell_colours)
