@@ -330,7 +330,8 @@ class Image():
         else:
             canny_areas = np.unique(self.canny_features, return_counts=True)[1].astype(float)
             canny_areas_clip = SigmaClip(canny_areas, median=True, sigma_thresh=2.0)
-            area_thresh = int( np.round( 0.5 * canny_areas_clip[1] ) )
+            area_thresh = np.min([ int(np.round(canny_areas_clip[1]-(3.0*canny_areas_clip[0]))), int(np.round(0.5*canny_areas_clip[1])) ])
+            area_thresh = np.max([area_thresh, canny_areas.min()])
             #area_thresh = int( np.round( 0.5 * np.nanmin(canny_areas) ) )
             #area_thresh = int( np.round( canny_areas_clip[1] - ( 3.0 * np.nanstd(canny_areas_clip[1]-canny_areas[np.where(canny_areas<canny_areas_clip[1])]) ) ) )
 
