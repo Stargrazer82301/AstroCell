@@ -26,7 +26,7 @@ def Run(in_dir=False,
         dill_dir=False,
         verbose=True):
     """ Define function that commences AstroCell cell-counting-and-classifying pipeline """
-
+    pdb.set_trace()
     # Create output directory
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if not os.path.exists(out_dir):
