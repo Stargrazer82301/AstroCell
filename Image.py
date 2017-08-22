@@ -532,80 +532,80 @@ class Image():
         hyster_seg_map_open = scipy.ndimage.binary_opening(hyster_seg_map, structure=open_structure, iterations=1).astype(float)
         hyster_seg_map_open *= hyster_seg_map
 
-        # If performing meta-segmentation, ensure no pixels are lost in segmentaiton
-        if meta:
+        """# If performing meta-segmentation, ensure no pixels are lost in segmentaiton
+        if meta:"""
 
-            # Identify area that was lost as border pixels (labelling as -1)
-            hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map, structure=label_structure)[0]
-            hyster_seg_map[ np.where( (self.thresh_segmap>0) & (hyster_seg_map==0) ) ] = -1
+        # Identify area that was lost as border pixels (labelling as -1)
+        hyster_seg_map = scipy.ndimage.measurements.label(hyster_seg_map, structure=label_structure)[0]
+        hyster_seg_map[ np.where( (self.thresh_segmap>0) & (hyster_seg_map==0) ) ] = -1
 
-            # Sort features in order of area
-            hyster_seg_areas = np.array(np.unique(hyster_seg_map, return_counts=True)).transpose()
-            hyster_seg_areas = hyster_seg_areas[ np.where(hyster_seg_areas[:,0]>0)[0], : ]
-            hyster_seg_areas = hyster_seg_areas[ np.argsort(hyster_seg_areas[:,1]), : ]
+        # Sort features in order of area
+        hyster_seg_areas = np.array(np.unique(hyster_seg_map, return_counts=True)).transpose()
+        hyster_seg_areas = hyster_seg_areas[ np.where(hyster_seg_areas[:,0]>0)[0], : ]
+        hyster_seg_areas = hyster_seg_areas[ np.argsort(hyster_seg_areas[:,1]), : ]
 
-            # Loop over single-pixel 'dot' features, removing them if they are within a 2-pixel radius of any other labelled features.
-            for k in range(0, hyster_seg_areas.shape[0]):
-                if hyster_seg_areas[k,1] != 1:
+        # Loop over single-pixel 'dot' features, removing them if they are within a 2-pixel radius of any other labelled features.
+        for k in range(0, hyster_seg_areas.shape[0]):
+            if hyster_seg_areas[k,1] != 1:
+                continue
+            dot_index = hyster_seg_areas[k,0]
+            dot_where = np.where(hyster_seg_map == dot_index)
+            dot_i, dot_j = dot_where[0][0], dot_where[1][0]
+            for i in range( np.max([dot_i-2,0]), np.min([dot_i+2,hyster_seg_map.shape[0]-1]) ):
+                for j in range( np.max([dot_j-2,0]), np.min([dot_j+2,hyster_seg_map.shape[1]-1]) ):
+                    if (hyster_seg_map[i,j] > 0) and (hyster_seg_map[i,j] != dot_index):
+                        hyster_seg_map[dot_i,dot_j] = -1
+
+        # Identify and sort surviving features in order of area
+        hyster_seg_areas = np.array(np.unique(hyster_seg_map, return_counts=True)).transpose()
+        hyster_seg_areas = hyster_seg_areas[ np.where(hyster_seg_areas[:,0]>0)[0], : ]
+        hyster_seg_areas = hyster_seg_areas[ np.argsort(hyster_seg_areas[:,1]), : ]
+
+        # Find features that were entirely lost to border pixels, and recover them
+        comb_seg_map = hyster_seg_map.copy()
+        comb_seg_map[np.where(comb_seg_map != 0)] = 1
+        comb_seg_map = scipy.ndimage.measurements.label(comb_seg_map, structure=label_structure)[0]
+        for i in range(1,comb_seg_map.max()):
+            mult_seg_map = comb_seg_map * hyster_seg_map
+            mult_seg_neg = np.where( (comb_seg_map==i) & (mult_seg_map<0) )
+            comb_seg_target = np.where(comb_seg_map==i)
+            if mult_seg_neg[0].shape[0] == comb_seg_target[0].shape[0]:
+                hyster_seg_map[np.where(comb_seg_map==i)] = hyster_seg_map.max() + 1
+
+        # Commence dilation loop, continuing until all lost pixels have been assigned
+        done_features = []
+        dilate_structure = scipy.ndimage.generate_binary_structure(2,2)
+        while np.where(hyster_seg_map == 0)[0].shape[0]:
+            hyster_seg_map_start = hyster_seg_map.copy()
+
+            # Loop over all features, dilating them in turn (skipping )
+            for i in range(1, hyster_seg_map.max()):
+
+                # Skip features already noted a having been fully dilated, and non-existant features
+                if i in done_features:
                     continue
-                dot_index = hyster_seg_areas[k,0]
-                dot_where = np.where(hyster_seg_map == dot_index)
-                dot_i, dot_j = dot_where[0][0], dot_where[1][0]
-                for i in range( np.max([dot_i-2,0]), np.min([dot_i+2,hyster_seg_map.shape[0]-1]) ):
-                    for j in range( np.max([dot_j-2,0]), np.min([dot_j+2,hyster_seg_map.shape[1]-1]) ):
-                        if (hyster_seg_map[i,j] > 0) and (hyster_seg_map[i,j] != dot_index):
-                            hyster_seg_map[dot_i,dot_j] = -1
+                if np.where(hyster_seg_map==i)[0].shape[0] == 0:
+                    done_features.append(i)
+                    continue
+                blanck_seg_map = np.zeros(hyster_seg_map.shape)
+                blanck_seg_map[np.where(hyster_seg_map==i)] = 1
+                dilate_seg_map = scipy.ndimage.binary_dilation(blanck_seg_map, structure=dilate_structure, iterations=1).astype(int)
 
-            # Identify and sort surviving features in order of area
-            hyster_seg_areas = np.array(np.unique(hyster_seg_map, return_counts=True)).transpose()
-            hyster_seg_areas = hyster_seg_areas[ np.where(hyster_seg_areas[:,0]>0)[0], : ]
-            hyster_seg_areas = hyster_seg_areas[ np.argsort(hyster_seg_areas[:,1]), : ]
+                # Ensure feature only expands into 'valid' pixels, and remains contiguous
+                dilate_seg_map[ np.where( (dilate_seg_map>0) & (hyster_seg_map>-1) & (hyster_seg_map!=i) ) ] = 0
+                dilate_seg_map_labelled = scipy.ndimage.measurements.label(dilate_seg_map, structure=scipy.ndimage.generate_binary_structure(2,1))[0]
+                dilate_seg_map_label = scipy.stats.mode( dilate_seg_map_labelled[np.where(blanck_seg_map==1)] )[0][0]
+                dilate_seg_map[np.where(dilate_seg_map_labelled!=dilate_seg_map_label)] = 0
 
-            # Find features that were entirely lost to border pixels, and recover them
-            comb_seg_map = hyster_seg_map.copy()
-            comb_seg_map[np.where(comb_seg_map != 0)] = 1
-            comb_seg_map = scipy.ndimage.measurements.label(comb_seg_map, structure=label_structure)[0]
-            for i in range(1,comb_seg_map.max()):
-                mult_seg_map = comb_seg_map * hyster_seg_map
-                mult_seg_neg = np.where( (comb_seg_map==i) & (mult_seg_map<0) )
-                comb_seg_target = np.where(comb_seg_map==i)
-                if mult_seg_neg[0].shape[0] == comb_seg_target[0].shape[0]:
-                    hyster_seg_map[np.where(comb_seg_map==i)] = hyster_seg_map.max() + 1
+                # If no change observed, record this feature as complete; else update hysteresis segmentation map with dilated feature
+                if False not in (blanck_seg_map==dilate_seg_map):
+                    done_features.append(i)
+                else:
+                    hyster_seg_map[np.where(dilate_seg_map==1)] = i
 
-            # Commence dilation loop, continuing until all lost pixels have been assigned
-            done_features = []
-            dilate_structure = scipy.ndimage.generate_binary_structure(2,2)
-            while np.where(hyster_seg_map == 0)[0].shape[0]:
-                hyster_seg_map_start = hyster_seg_map.copy()
-
-                # Loop over all features, dilating them in turn (skipping )
-                for i in range(1, hyster_seg_map.max()):
-
-                    # Skip features already noted a having been fully dilated, and non-existant features
-                    if i in done_features:
-                        continue
-                    if np.where(hyster_seg_map==i)[0].shape[0] == 0:
-                        done_features.append(i)
-                        continue
-                    blanck_seg_map = np.zeros(hyster_seg_map.shape)
-                    blanck_seg_map[np.where(hyster_seg_map==i)] = 1
-                    dilate_seg_map = scipy.ndimage.binary_dilation(blanck_seg_map, structure=dilate_structure, iterations=1).astype(int)
-
-                    # Ensure feature only expands into 'valid' pixels, and remains contiguous
-                    dilate_seg_map[ np.where( (dilate_seg_map>0) & (hyster_seg_map>-1) & (hyster_seg_map!=i) ) ] = 0
-                    dilate_seg_map_labelled = scipy.ndimage.measurements.label(dilate_seg_map, structure=scipy.ndimage.generate_binary_structure(2,1))[0]
-                    dilate_seg_map_label = scipy.stats.mode( dilate_seg_map_labelled[np.where(blanck_seg_map==1)] )[0][0]
-                    dilate_seg_map[np.where(dilate_seg_map_labelled!=dilate_seg_map_label)] = 0
-
-                    # If no change observed, record this feature as complete; else update hysteresis segmentation map with dilated feature
-                    if False not in (blanck_seg_map==dilate_seg_map):
-                        done_features.append(i)
-                    else:
-                        hyster_seg_map[np.where(dilate_seg_map==1)] = i
-
-                # Similarly, if no change over whole loop, break out of loop
-                if False not in (hyster_seg_map_start == hyster_seg_map):
-                    break
+            # Similarly, if no change over whole loop, break out of loop
+            if False not in (hyster_seg_map_start == hyster_seg_map):
+                break
 
         # Permutate labels
         hyster_seg_map = AstroCell.Process.LabelShuffle(hyster_seg_map)

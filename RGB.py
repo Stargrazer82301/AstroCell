@@ -337,11 +337,23 @@ class RGB():
         """ Method that combines the segmentations from each individual channel to produces the final segmenation """
 
         # Create segmentation 'cube', holding the segments from each band (NB, the channel index comes first, to simplify FITS output)
-        hyster_seg_cube = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
+        hyster_seg_cube_full = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
         for i in range(0, len(self.iter_coadd)):
-            hyster_seg_cube[i,:,:] = self.iter_coadd[i].hyster_segmap
+            hyster_seg_cube_full[i,:,:] = self.iter_coadd[i].hyster_segmap
 
-        # Create segmentation stack
+        # Loop over features in each slice of cube, eroding them so that clear separation exists for meta-segmentation to exploit
+        hyster_seg_cube = hyster_seg_cube_full.copy()
+        for i in range(0, hyster_seg_cube.shape[0]):
+            for j in np.unique(hyster_seg_cube[i,:,:]):
+                if j <= 0:
+                    continue
+                hyster_seg_copy = hyster_seg_cube[i,:,:].copy()
+                hyster_seg_copy[np.where(hyster_seg_copy!=j)] = 0
+                hyster_seg_copy = j * scipy.ndimage.morphology.binary_erosion(hyster_seg_copy).astype(int)
+                hyster_seg_cube[i,:,:][np.where(hyster_seg_cube[i,:,:]==j)] = 0
+                hyster_seg_cube[i,:,:][np.where(hyster_seg_copy==j)] = j
+
+        # Create segmentation stacks
         hyster_seg_stack = np.sum(hyster_seg_cube.astype(bool).astype(int), axis=0)
 
         # Work out combined minimum area threshold
@@ -375,6 +387,7 @@ class RGB():
         self.meta.thresh_area = self.thresh_area
         self.meta.thresh_segmap = thresh_seg_stack
         #self.meta.thresh_segmap = scipy.ndimage.measurements.label(hyster_seg_stack.astype(bool).astype(int))[0]
+        #astropy.io.fits.writeto('/home/chris/coadd_det_map.fits', self.detmap.astype(float), clobber=True)
 
         # Do blob-finding required for later segmentation
         self.meta.CannyBlobs(sigma=2.0)
