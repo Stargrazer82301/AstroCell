@@ -11,7 +11,6 @@ import numpy as np
 import matplotlib.pylab as plt
 import astropy.logger
 astropy.log.setLevel('ERROR')
-import AstroCell
 import AstroCell.RGB
 import AstroCell.Image
 import AstroCell.IO
