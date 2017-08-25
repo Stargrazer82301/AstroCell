@@ -2,7 +2,6 @@
 import pdb
 import os
 import sys
-sys.path.append('/home/chris/Dropbox/Work/Scripts/')
 import warnings
 warnings.simplefilter('ignore', category=Warning)
 import dill
@@ -16,6 +15,14 @@ import AstroCell.Image
 import AstroCell.IO
 plt.ioff()
 
+# Various imports to force PyInstaller to work
+import six
+import packaging
+import packaging.version
+import packaging.specifiers
+makework_list = [six, packaging, packaging.version, packaging.specifiers]
+makework_list = [ makework.__class__ for makework in makework_list ]
+
 
 
 def Run(in_dir=False,
@@ -26,7 +33,7 @@ def Run(in_dir=False,
         dill_dir=False,
         verbose=True):
     """ Define function that commences AstroCell cell-counting-and-classifying pipeline """
-    pdb.set_trace()
+
     # Create output directory
     out_dir = os.path.join(in_dir, 'AstroCell_Output')
     if not os.path.exists(out_dir):

@@ -2,10 +2,17 @@
 import pdb
 import os
 import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import tkinter
 import tkinter.filedialog
 import AstroCell.Main
+
+# Various imports to force PyInstaller to work
+import six
+import packaging
+import packaging.version
+import packaging.specifiers
+makework_list = [six, packaging, packaging.version, packaging.specifiers]
+makework_list = [ makework.__class__ for makework in makework_list ]
 
 
 
