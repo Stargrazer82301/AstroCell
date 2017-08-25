@@ -5,7 +5,7 @@ import sys
 sys.setrecursionlimit(5000)
 
 # To make sure that the six module is included (needed by astropy)
-hiddenimports=['six','packaging','packaging.version','packaging.specifiers'],
+hiddenimports=['six','packaging','packaging.version','packaging.specifiers']
 
 block_cipher = None
 
