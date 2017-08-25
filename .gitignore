@@ -60,7 +60,12 @@ scellaneous/*.txt
 # Test data
 /Test/Test_Data
 
-# PyInstaller files
+# Setup directories
+/astrocell.egg-info
+/build
+/dist
+
+# PyInstaller directories
 /AstroCell/dist
 /AstroCell/build
 
