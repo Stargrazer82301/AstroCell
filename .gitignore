@@ -60,6 +60,9 @@ scellaneous/*.txt
 # Test data
 /Test/Test_Data
 
+# PyInstaller files
+/AstroCell/dist
+/AstroCell/build
 
 
 
