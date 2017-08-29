@@ -7,6 +7,11 @@ sys.setrecursionlimit(5000)
 # To make sure that the six module is included (needed by astropy)
 hiddenimports=['six','packaging','packaging.version','packaging.specifiers']
 
+# Yet more astropy-wrangling
+import astropy
+astropy_base_dir = os.path.dirname(astropy.__file__)
+astropy_tree = Tree(astropy_base_dir, prefix='astropy')
+
 block_cipher = None
 
 a = Analysis(['GUI.py'],
@@ -24,6 +29,7 @@ pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
+          #astropy_tree,
           exclude_binaries=True,
           name='GUI',
           debug=False,
@@ -34,6 +40,7 @@ coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
                a.datas,
+               #astropy_tree,
                strip=False,
                upx=True,
                name='GUI')

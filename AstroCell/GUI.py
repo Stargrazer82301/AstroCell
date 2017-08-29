@@ -2,17 +2,28 @@
 import pdb
 import os
 import sys
+import inspect
+import re
 import tkinter
 import tkinter.filedialog
-import AstroCell.Main
 
-# Various imports to force PyInstaller to work
-import six
-import packaging
-import packaging.version
-import packaging.specifiers
-makework_list = [six, packaging, packaging.version, packaging.specifiers]
-makework_list = [ makework.__class__ for makework in makework_list ]
+
+
+
+
+# Code by https://github.com/maartenbreddels to 'freeze out' Astropy, to allow it to work with PyInstaller
+if hasattr(sys, "_MEIPASS"):
+	sys.path.insert(0, os.path.join(sys._MEIPASS, "astropy"))
+	if 1:
+		old_getabsfile = inspect.getabsfile
+		def inspect_getabsfile_wrapper(*args, **kwargs):
+			path = old_getabsfile(*args, **kwargs)
+			last_part = re.sub("(.*?yportsa).*", r"\1", path[::-1])[::-1]
+			return os.path.join(sys._MEIPASS, last_part)
+		inspect.getabsfile = inspect_getabsfile_wrapper
+
+# Having safely frozen out Astropy, import AstroCell (and all the Astropy it entails)
+import AstroCell.Main
 
 
 
@@ -240,3 +251,5 @@ if __name__ == "__main__":
                            parallel=gui.parallel,
                            mc_factor=gui.mc_factor,
                            dill_dir=False)
+
+
