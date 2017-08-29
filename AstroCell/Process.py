@@ -18,7 +18,6 @@ astropy.log.setLevel('ERROR')
 import astropy.io.fits
 import skimage.feature
 import skimage.measure
-import pyamg
 import webcolors
 from ChrisFuncs import SigmaClip, ProgressDir
 plt.ioff()

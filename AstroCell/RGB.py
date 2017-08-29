@@ -158,6 +158,10 @@ class RGB():
     def MakeCoadd(self):
         """ Method that adds an new Image object, that's a coadd of the three channels """
 
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Creating a greyscale \"coadd\" image, to be treated as a 4th colour channel, to assist in processing.')
+
         # Initialise AstroCell.Image object for a coadd of all three channels
         coadd = np.sum(self.cube,axis=2).astype(float) / 3.0
         self.coadd = AstroCell.Image.Image(coadd)
@@ -179,7 +183,7 @@ class RGB():
 
 
     def CannyMask(self):
-        """ A method that combines the Canny blob detectionn in each channel to create a mask tracing cell-filled regions """
+        """ A method that combines the Canny blob detection in each channel to create a mask tracing cell-filled regions """
 
         # Do a rough Canny-based cell extraction on each channel, including the coadd
         self.canny_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
@@ -241,6 +245,10 @@ class RGB():
     def LogDogBlobsWrapper(self):
         """ Wrapper around the optionally-parallel LoG-DoG blob finding Image method """
 
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Using Laplacian-of-Gaussian and Difference-of-Gaussian blob detection to find cell-like blobs in image.')
+
         # If parallel operation requested, process channels simultaneously using joblib
         if self.parallel.parallel:
             logdog_blob_list = joblib.Parallel( n_jobs=self.parallel.subthreads )\
@@ -258,6 +266,10 @@ class RGB():
 
     def BlobMask(self):
         """ A method that combines the Canny, LoG, and DoG blob detectionn in each channel to create a mask of cell-filled regions """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Combining blob detection results to identify all pixels that likely contain cells.')
 
         # Create cube of Canny features from each channel (including coadd)
         self.canny_cube = np.zeros([self.cube.shape[0],self.cube.shape[1],4])
@@ -294,6 +306,10 @@ class RGB():
 
     def DetFilter(self):
         """ Method that removes smooth all large-scale background structure from map, to create an optimal detection map """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Modelling and subtracting background features, as found in pixels determined to not contain cells.')
 
         # Use Canny features map to get distribution of feature sizes (assuming circuar features)
         canny_areas = np.unique(self.coadd.canny_features, return_counts=True)[1].astype(float)
@@ -335,6 +351,10 @@ class RGB():
 
     def SegmentCombine(self):
         """ Method that combines the segmentations from each individual channel to produces the final segmenation """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Combining segmentation results from all channels to create final cell extraction.')
 
         # Create segmentation 'cube', holding the segments from each band (NB, the channel index comes first, to simplify FITS output)
         hyster_seg_cube_full = np.zeros([4, self.cube.shape[0], self.cube.shape[1]]).astype(int)
@@ -407,6 +427,10 @@ class RGB():
 
     def CellPhotom(self):
         """ Method that measures the properties of all the segmented cells in the image """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Measuring properties of all identified cells.')
 
         # Declare columns for 'photometry' table
         table_col_names = ('id',
@@ -493,6 +517,10 @@ class RGB():
 
     def CellClassify(self, cell_colours=None):
         """ Method that classifies cells based on their location in a multi-dimensional parameter space """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Classifying cells based on their measured colours.')
 
         # Select only table columns that contain data, convert them into an array for ease of processing
         data_array = self.table[self.table.cluster_cols].as_array()
@@ -651,6 +679,10 @@ class RGB():
 
     def OverviewImages(self):
         """ Method that produces overview image figure of the results """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Outputing result data for this image.')
 
         # Use size of image, and number of panes desired, to determine size of figure
         map_aspect = float(self.coadd.map.shape[1]) / float(self.coadd.map.shape[0])

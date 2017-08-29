@@ -54,6 +54,10 @@ class Image():
     def CleanEdges(self):
         """ Method that removes rows/columns of single-value pixels from edge of an image. The 'unclean' image is saved to an attribute """
 
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Looking for edge artefacts in '+str(self.name)+' channel image; if they are found, they will be removed.')
+
         # Make copy of image to work with
         in_image = self.map.copy()
 
@@ -111,6 +115,10 @@ class Image():
 
     def CannyBlobs(self, sigma=False):
         """ A method that uses Canny edge detection to generate a initial guess of what regions of an image are occupied by cells """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Using Canny edge detection to find blobs in '+str(self.name)+' channel image.')
 
         # Create coy of map to work with
         in_map = self.map.copy()
@@ -186,6 +194,10 @@ class Image():
     def CannyCellStack(self):
         """ Method that stacks upon positions of identified features, to create a matched filter """
 
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Using provisionally-detected blobs to model \"typical\" cell for '+str(self.name)+' channel.')
+
         # Do not proceed if no Canny features were detected in this channel
         if not self.canny_features.max() > 0:
             return None
@@ -251,6 +263,10 @@ class Image():
 
     def CrossCorr(self):
         """ A method to perform a cross-correlation on the image, using the stacked Canny cells as the target filter """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Cross-correlated \"typical\" cell model with '+str(self.name)+' channel image.')
 
         # Do not proceed if no Canny features were detected in this channel
         if not self.canny_features.max() > 0:
@@ -324,6 +340,10 @@ class Image():
     def ThreshSegment(self, bg_mask=None):
         """ A method that uses basic threshold segmenting to identify cells """
 
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Performing threshold segmentation on '+str(self.name)+' channel image to extract candidate cells.')
+
         # Use areas of this channel's Canny features to decide minimum pixel area limit for segments
         if np.nanstd(self.canny_features) == 0:
             area_thresh = 0.0
@@ -379,6 +399,10 @@ class Image():
     def WaterBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Preparing Monte-Carlo watershed segmentation for '+str(self.name)+' channel image, to deblend cells.')
+
         # Prepare parameters for Monte Carlo segmenations
         iter_total = int( np.round( 150.0 * self.mc_factor ) )
         self.water_iter = iter_total
@@ -429,6 +453,10 @@ class Image():
 
     def WalkerBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Preparing Monte-Carlo random-walker segmentation for '+str(self.name)+' channel image, to deblend cells.')
 
         # Prepare parameters for Monte Carlo segmenations
         iter_total = int( np.round( 150.0 * self.mc_factor ) )
@@ -486,6 +514,10 @@ class Image():
 
     def DeblendSegment(self, thresh_lower=0.3, thresh_upper=0.9, meta=False, substructure_flag=False):
         """ Method that performs segmentation using output of watershed segmentations """
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Using results of Monte-Carlo deblending to conduct final cell extraction for '+str(self.name)+' channel image.')
 
         # If this is not a meta-segmentation, then create a deblending map
         if not meta:
