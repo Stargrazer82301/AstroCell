@@ -473,7 +473,7 @@ class RGB():
             index_map = self.segmap.copy()
             index_map[np.where(self.segmap!=i)] == 0
             row_coord_i = np.median( np.where(self.segmap==i)[0] )
-            row_coord_j = np.median( np.where(self.segmap==i)[0] )
+            row_coord_j = np.median( np.where(self.segmap==i)[1] )
 
             # Calculate fluxes
             row_flux_b = np.sum(self.b.map[seg_where])
@@ -506,7 +506,7 @@ class RGB():
 
             # Calculate and record segment properties
             self.table.add_row([i,
-                                row_area, row_coord_i, row_coord_j,
+                                row_coord_i, row_coord_j, row_area,
                                 row_flux_b, row_flux_g, row_flux_r,
                                 row_mu_b, row_mu_g, row_mu_r,
                                 row_colour_bg, row_colour_br, row_colour_gr,
