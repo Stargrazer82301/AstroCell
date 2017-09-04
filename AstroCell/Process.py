@@ -1,5 +1,4 @@
 # Import smorgasbord
-from __future__ import print_function
 import os
 import pdb
 import gc
@@ -180,7 +179,7 @@ def WaterWrapper(Image, seg_map, iter_total, verbose, img_id):
     if iter_complete == 1:
         if verbose:
             print('['+img_id+'] Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
-    elif iter_complete > 1: #== iter_report:
+    elif iter_complete == iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now
@@ -188,7 +187,7 @@ def WaterWrapper(Image, seg_map, iter_total, verbose, img_id):
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
         if verbose:
-            print_function('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').', end='\r')
+            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').', end='\r')
 
     # Clean up, and return output segmentation map
     gc.collect
@@ -261,7 +260,7 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose, img_id):
     if iter_complete == 1:
         if verbose:
             print('['+img_id+'] Starting Monte-Carlo deblending for '+str(Image.name)+' channel; estimated completion time pending.')
-    elif iter_complete > 1: #== iter_report:
+    elif iter_complete == iter_report:
         datetime_now = datetime.datetime.now()
         datetime_est = datetime.datetime.fromtimestamp(float(time_est))
         datetime_delta = datetime_est - datetime_now
@@ -269,7 +268,7 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose, img_id):
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
         if verbose:
-            print_function('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').', end='\r')
+            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').', end='\r')
 
     # Clean up, and return output segmentation map
     gc.collect
