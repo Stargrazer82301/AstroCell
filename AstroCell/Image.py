@@ -266,7 +266,7 @@ class Image():
 
         # Report status
         if self.verbose:
-            print('['+self.id+'] Cross-correlated \"typical\" cell model with '+str(self.name)+' channel image.')
+            print('['+self.id+'] Cross-correlating \"typical\" cell model with '+str(self.name)+' channel image.')
 
         # Do not proceed if no Canny features were detected in this channel
         if not self.canny_features.max() > 0:
@@ -428,9 +428,10 @@ class Image():
                 water_map_list.append( pool.apply_async( AstroCell.Process.WaterWrapper, args=(self, seg_map, iter_total, self.verbose, self.id,) ) )
             else:
                 water_map_list.append( AstroCell.Process.WaterWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose, self.id) )
-        pool.close()
-        pool.join()
-        water_map_list = [output.get() for output in water_map_list]
+        if self.parallel.parallel:
+            pool.close()
+            pool.join()
+            water_map_list = [output.get() for output in water_map_list]
 
         # Convert walker maps to boundry maps
         border_map = np.zeros(seg_map.shape)
@@ -479,9 +480,10 @@ class Image():
                 walker_map_list.append( pool.apply_async( AstroCell.Process.WalkerWrapper, args=(self, seg_map, iter_total, self.verbose, self.id,) ) )
             else:
                 walker_map_list.append( AstroCell.Process.WalkerWrapper(copy.deepcopy(self), seg_map, iter_total, self.verbose, self.id) )
-        pool.close()
-        pool.join()
-        walker_map_list = [output.get() for output in walker_map_list]
+        if self.parallel.parallel:
+            pool.close()
+            pool.join()
+            walker_map_list = [output.get() for output in walker_map_list]
 
         # Convert walker maps to boundry maps
         border_map = np.zeros(seg_map.shape)
