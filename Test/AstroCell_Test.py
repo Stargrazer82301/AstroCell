@@ -29,8 +29,9 @@ if __name__ == '__main__':
     test_dir = 'Test_Data/'
     #img_dir = 'Histochemial/3100_zeb1/'
     #img_dir = 'Flourescant/Liver/APCFLOX1668/'
-    img_dir = 'Flourescant/Mammary/Ref_LO/'
+    #img_dir = 'Flourescant/Mammary/Ref_LO/'
     #img_dir = 'Histochemial/Mammary/Ref_LO/'
+    img_dir = 'Histochemial/Mammary/Cytoplasm/'
     in_dir = os.path.join(test_dir, img_dir)
 
     # Set output directory for Dills (like pickle jars, these are snapshots to resume AstroCell from a 'saved' point, for testing)

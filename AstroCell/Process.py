@@ -187,7 +187,7 @@ def WaterWrapper(Image, seg_map, iter_total, verbose, img_id):
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
         if verbose:
-            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').', end='\r')
+            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').')#, end='\r')
 
     # Clean up, and return output segmentation map
     gc.collect
@@ -268,7 +268,7 @@ def WalkerWrapper(Image, seg_map, iter_total, verbose, img_id):
         delta_h, delta_m = divmod(delta_m, 60)
         delta_string =  str(int(np.round(delta_h)))+' h, '+str(int(np.round(delta_m)))+' m, '+str(int(np.round(delta_s)))+' s'
         if verbose:
-            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').', end='\r')
+            print('['+img_id+'] Estimated completion time for '+str(Image.name)+' channel Monte-Carlo deblending: '+delta_string+', (at '+str(time.ctime(time_est))+').')#, end='\r')
 
     # Clean up, and return output segmentation map
     gc.collect

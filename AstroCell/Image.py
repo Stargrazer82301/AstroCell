@@ -399,10 +399,6 @@ class Image():
     def WaterBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of watershed segmentations to deblend segmented cell features """
 
-        # Report status
-        if self.verbose:
-            print('['+self.id+'] Preparing Monte-Carlo watershed segmentation for '+str(self.name)+' channel image, to deblend cells.')
-
         # Prepare parameters for Monte Carlo segmenations
         iter_total = int( np.round( 150.0 * self.mc_factor ) )
         self.water_iter = iter_total
@@ -454,10 +450,6 @@ class Image():
 
     def WalkerBorders(self, seg_map=None):
         """ A method that uses a Monte Carlo series of random water segmentations to deblend segmented cell features """
-
-        # Report status
-        if self.verbose:
-            print('['+self.id+'] Preparing Monte-Carlo random-walker segmentation for '+str(self.name)+' channel image, to deblend cells.')
 
         # Prepare parameters for Monte Carlo segmenations
         iter_total = int( np.round( 150.0 * self.mc_factor ) )
@@ -517,10 +509,6 @@ class Image():
     def DeblendSegment(self, thresh_lower=0.3, thresh_upper=0.9, meta=False, substructure_flag=False):
         """ Method that performs segmentation using output of watershed segmentations """
 
-        # Report status
-        if self.verbose:
-            print('['+self.id+'] Using results of Monte-Carlo deblending to conduct final cell extraction for '+str(self.name)+' channel image.')
-
         # If this is not a meta-segmentation, then create a deblending map
         if not meta:
 
@@ -551,6 +539,10 @@ class Image():
         # If trying to deblend a meta-segmentation, simply use that
         elif meta:
             hyster_in_map = self.water_border.copy()
+
+        # Report status
+        if self.verbose:
+            print('['+self.id+'] Using results of Monte-Carlo deblending to conduct final cell extraction for '+str(self.name)+' channel image.')
 
         # Perform hysteresis thresholding on this channel's watershed border map
         hyster_border = AstroCell.Process.HysterThresh(hyster_in_map, thresh_lower, thresh_upper)
